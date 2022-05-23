@@ -165,7 +165,7 @@ class Levels(commands.Cog):
         canvas.text((xp_bar_start[0], rank_start[1]), f"RANK {user_rank}", fill="#dc3545",font=ImageFont.truetype("./assets/fonts/Bebas.ttf", size=50))
 
         # Level
-        x_offset = ImageFont.truetype("./assets/fonts/Bebas.ttf", size=50).getsize(f"RANK {user_level}")[0]
+        x_offset = ImageFont.truetype("./assets/fonts/Bebas.ttf", size=50).getsize(f"RANK {user_rank}")[0]
         canvas.text((xp_bar_start[0] + x_offset + 10, rank_start[1]), f"LEVEL {user_level}", fill="rgb(80, 80, 80)",font=ImageFont.truetype("./assets/fonts/Bebas.ttf", size=50))
         
         # XP Count
