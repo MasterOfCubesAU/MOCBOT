@@ -65,19 +65,20 @@ class Levels(commands.Cog):
             MOC_DB.execute("DELETE FROM XP WHERE GuildID = %s AND UserID = %s", member.guild.id, member.id)
 
     async def message_xp(self, message):
+        await self.add_xp(message.author, self.messages_xp * self.global_multiplier)
         xplock = MOC_DB.field(
             "SELECT XPLock FROM XP WHERE UserID = %s AND GuildID = %s",
             message.author.id,
             message.guild.id,
         )
-        if datetime.datetime.utcnow() > datetime.datetime.fromisoformat(str(xplock)):
-            await self.add_xp(message.author, 4 * self.global_multiplier)
-            MOC_DB.execute(
-                "UPDATE XP SET XPLock = %s WHERE UserID = %s AND GuildID = %s",
-                (datetime.datetime.utcnow() + datetime.timedelta(seconds=60)).isoformat(),
-                message.author.id,
-                message.guild.id,
-            )
+        if xplock:
+            if datetime.datetime.utcnow() > datetime.datetime.fromisoformat(str(xplock)):
+                MOC_DB.execute(
+                    "UPDATE XP SET XPLock = %s WHERE UserID = %s AND GuildID = %s",
+                    (datetime.datetime.utcnow() + datetime.timedelta(seconds=60)).isoformat(),
+                    message.author.id,
+                    message.guild.id,
+                )
 
     @commands.Cog.listener()
     async def on_message(self, message):
