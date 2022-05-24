@@ -22,7 +22,7 @@ class MOC_DB:
             else:
                 logger.error(f"[DB] {err}")
         else:
-            self.cursor = self.connection.cursor()
+            self.cursor = self.connection.cursor(buffered=True)
             logger.info("[DB] Connection established.")
 
     def execute(self, command, *values):
