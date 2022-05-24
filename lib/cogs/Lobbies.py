@@ -85,6 +85,25 @@ class LobbyPrompt(View):
         MOC_DB.execute("INSERT INTO LobbyUsers (UserID, GuildID, LobbyName) VALUES (%s, %s, %s)", lobby_details[5], lobby_details[0], lobby_details[1])
         MOC_DB.execute("UPDATE Lobbies SET LeaderID = %s WHERE GuildID = %s AND LobbyName = %s", new_leader.id, lobby_details[0], lobby_details[1])
     
+    async def setInviteOnly(self, member, value):
+        lobby_details = LobbyPrompt.get_lobby_details(member)
+        lobby_channel = self.interaction.client.get_channel(lobby_details[2])
+        MOC_DB.execute("UPDATE Lobbies SET Invite_Only = %s WHERE GuildID = %s AND LeaderID = %s", value, member.guild.id, member.id)
+        if value:
+            overwrites = {
+                member.guild.get_role(MOC_DB.field("SELECT RoleID FROM Lobbies WHERE GuildID = %s AND LeaderID = %s", member.guild.id, member.id)): PermissionOverwrite(speak=True, connect=True, view_channel=True),
+                member.guild.default_role: PermissionOverwrite(connect=False, view_channel=False)
+            }
+        else:
+            overwrites = {
+                member.guild.get_role(MOC_DB.field("SELECT RoleID FROM Lobbies WHERE GuildID = %s AND LeaderID = %s", member.guild.id, member.id)): PermissionOverwrite(speak=True, connect=True, view_channel=True),
+                member.guild.default_role: PermissionOverwrite(connect=False, view_channel=True)
+            }
+        await lobby_channel.edit(overwrites=overwrites)
+
+    def is_lobby_hidden(self, member):
+        return MOC_DB.field("SELECT Invite_Only FROM Lobbies WHERE GuildID = %s AND LeaderID = %s", member.guild.id, member.id) == 1
+
     def is_lobby_leader(member):
         return member.id in MOC_DB.column("SELECT LeaderID FROM Lobbies WHERE GuildID = %s", member.guild.id)
     
@@ -112,7 +131,7 @@ class LobbyPrompt(View):
              self.lobby_user_prompt()
         else:
             self.new_lobby_prompt()
-            
+    
 
     def new_lobby_prompt(self):
         create_button = Button(label="Create Lobby", style=discord.ButtonStyle.green, row=1)
@@ -141,11 +160,20 @@ class LobbyPrompt(View):
         kick_button.callback = self.kick_button_callback
         self.add_item(kick_button)
 
+        if self.is_lobby_hidden(self.interaction.user):
+            show_button = Button(label="Show Lobby",style=discord.ButtonStyle.grey, row=0, disabled=False)
+            show_button.callback = self.show_button_callback
+            self.add_item(show_button)
+        else:
+            hide_button = Button(label="Hide Lobby",style=discord.ButtonStyle.grey, row=0, disabled=False)
+            hide_button.callback = self.hide_button_callback
+            self.add_item(hide_button)
+
         transfer_button = Button(label="Transfer Lobby",style=discord.ButtonStyle.grey, row=0, disabled=False)
         transfer_button.callback = self.transfer_button_callback
         self.add_item(transfer_button)
 
-        rename_button = Button(label="Rename Lobby",style=discord.ButtonStyle.grey, row=0)
+        rename_button = Button(label="Rename Lobby",style=discord.ButtonStyle.grey, row=1)
         rename_button.callback = self.rename_button_callback
         self.add_item(rename_button)
 
@@ -248,6 +276,16 @@ class LobbyPrompt(View):
         await self.delete_lobby(interaction.user)
         await self.delete_prompt()
         await interaction.response.send_message("Your lobby has successfully been deleted.", ephemeral=True)
+    
+    async def hide_button_callback(self, interaction:discord.Interaction):
+        await self.setInviteOnly(interaction.user, 1)
+        await self.delete_prompt()
+        await interaction.response.send_message("Your lobby is now publicly hidden and is invite only.", ephemeral=True)
+    
+    async def show_button_callback(self, interaction:discord.Interaction):
+        await self.setInviteOnly(interaction.user, 0)
+        await self.delete_prompt()
+        await interaction.response.send_message("Your lobby is now publicly visible and can be requested to join.", ephemeral=True)
 
 
 
