@@ -47,7 +47,6 @@ class Cogs(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         logger.info(f"[COG] Loaded {self.__class__.__name__}")
-        await self.load_cogs()
 
     CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.", guild_ids=[231230403053092864])
 
@@ -78,4 +77,6 @@ class Cogs(commands.Cog):
 
 
 async def setup(bot):
-    await bot.add_cog(Cogs(bot))
+    cogs_class = Cogs(bot)
+    await bot.add_cog(cogs_class)
+    await cogs_class.load_cogs()
