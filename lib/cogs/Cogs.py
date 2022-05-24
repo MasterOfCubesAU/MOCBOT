@@ -48,7 +48,7 @@ class Cogs(commands.Cog):
     async def on_ready(self):
         logger.info(f"[COG] Loaded {self.__class__.__name__}")
 
-    CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.", guild_ids=[231230403053092864])
+    CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.", guild_ids=[231230403053092864, 422983658257907732])
 
     @CogGroup.command(name="list", description="Lists all cog statuses.")
     # @app_commands.checks.has_permissions(manage_guild=True)
