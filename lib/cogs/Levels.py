@@ -17,7 +17,6 @@ class Levels(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.bot.tree.add_command(self.XPGroup, guild=DEV_GUILD)
         self.global_multiplier = 1
         self.messages_xp = 4
 
