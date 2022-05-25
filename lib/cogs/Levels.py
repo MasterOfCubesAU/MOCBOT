@@ -10,6 +10,8 @@ import requests
 import asyncio
 from io import BytesIO
 import datetime
+import math
+import json
 
 
 
@@ -23,10 +25,18 @@ class Levels(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         logger.info(f"[COG] Loaded {self.__class__.__name__}")
+        await self.level_integrity()
+        await self.update_roles()
 
     # Helper Functions
     async def get_required_xp(level):
         return (6 * ((level)) ** 2 + 94)
+    
+    async def calculate_correct_level(self, xp):
+        if xp >= 100:
+            return int(math.sqrt((xp - 94) / 6))
+        else:
+            return 0
 
     async def is_ranked(self, member):
         return bool(MOC_DB.field("SELECT UserID FROM XP WHERE (GuildID = %s AND UserID = %s)", member.guild.id, member.id))
@@ -88,34 +98,55 @@ class Levels(commands.Cog):
             and message.guild
         ):
             await self.message_xp(message)
+            await self.level_integrity(message.author)
+            await self.update_roles(message.author)
 
     def keystoint(self, x):
         return {int(k): v for k, v in x.items()}
 
-    async def update_roles(self, member):
-        role_map = self.keystoint(MOC_DB.field("SELECT LevelRoles FROM Roles WHERE GuildID = %s", member.guild.id))
-        member_level = await self.get_level(member)
-        member_roles = member.roles
-        low_difference = [
-            role_map[x]
-            for x in role_map
-            if role_map[x] not in [role.id for role in member_roles]
-            and x <= member_level
-        ]
-        high_difference = [
-            role.id
-            for role in member_roles
-            if role.id in {value: key for key, value in role_map.items()}
-            and {value: key for key, value in role_map.items()}[role.id]
-            > member_level
-        ]
-        if low_difference:
-            for x in low_difference:
-                await member.add_roles(Object(id=int(x)), reason="Role Adjustment")
-        if high_difference:
-            for x in high_difference:
-                await member.remove_roles(Object(id=int(x)), reason="Role Adjustment")
+    async def level_integrity(self, member=None):
+        if member and await self.is_ranked(member):
+            correct_level = await self.calculate_correct_level(await self.get_xp(member))
+            if await self.get_level(member) != correct_level:
+                MOC_DB.execute("UPDATE XP SET Level = %s WHERE UserID = %s AND GuildID = %s", correct_level, member.id, member.guild.id)
+        else:
+            data = MOC_DB.records("SELECT * FROM XP")
+            for record in data:
+                correct_level = await self.calculate_correct_level(record[2])
+                if record[3] != correct_level:
+                    MOC_DB.execute("UPDATE XP SET Level = %s WHERE UserID = %s AND GuildID = %s", correct_level, record[1], record[0])
 
+    async def update_roles(self, member=None):
+        if member:
+            role_map = self.keystoint(json.loads(MOC_DB.field("SELECT LevelRoles FROM Roles WHERE GuildID = %s", member.guild.id)))
+            if role_map and await self.is_ranked(member):
+                member_level = await self.get_level(member)
+                member_roles = member.roles
+                low_difference = [
+                    role_map[x]
+                    for x in role_map
+                    if role_map[x] not in [role.id for role in member_roles]
+                    and x <= member_level
+                ]
+                high_difference = [
+                    role.id
+                    for role in member_roles
+                    if role.id in {value: key for key, value in role_map.items()}
+                    and {value: key for key, value in role_map.items()}[role.id]
+                    > member_level
+                ]
+                if low_difference:
+                    for x in low_difference:
+                        await member.add_roles(Object(id=int(x)), reason="Role Adjustment")
+                if high_difference:
+                    for x in high_difference:
+                        await member.remove_roles(Object(id=int(x)), reason="Role Adjustment")
+        else:
+            data = MOC_DB.records("SELECT * FROM Roles")
+            for record in data:
+                if (guild := self.bot.get_guild(record[0])) != None:
+                    for member in guild.members:
+                        await self.update_roles(member)
 
     async def generate_rank_card(self, member):
         template = Image.open("./assets/levels/template.jpg")
