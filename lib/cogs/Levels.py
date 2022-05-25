@@ -122,8 +122,8 @@ class Levels(commands.Cog):
     async def update_roles(self, member=None):
         if member:
             role_map = self.keystoint(json.loads(MOC_DB.field("SELECT LevelRoles FROM Roles WHERE GuildID = %s", member.guild.id)))
-            if role_map and await self.is_ranked(member):
-                member_level = await self.get_level(member)
+            if role_map:
+                member_level = await self.get_level(member) or 0
                 member_roles = member.roles
                 low_difference = [
                     role_map[x]
