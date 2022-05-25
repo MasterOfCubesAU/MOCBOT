@@ -28,6 +28,11 @@ class Levels(commands.Cog):
         await self.level_integrity()
         await self.update_roles()
 
+    @commands.Cog.listener()
+    async def on_interaction(self, interaction):
+        await self.level_integrity(interaction.user)
+        await self.update_roles(interaction.user)
+
     # Helper Functions
     async def get_required_xp(level):
         return (6 * ((level)) ** 2 + 94)
