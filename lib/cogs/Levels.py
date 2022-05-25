@@ -28,11 +28,6 @@ class Levels(commands.Cog):
         await self.level_integrity()
         await self.update_roles()
 
-    @commands.Cog.listener()
-    async def on_interaction(self, interaction):
-        await self.level_integrity(interaction.user)
-        await self.update_roles(interaction.user)
-
     # Helper Functions
     async def get_required_xp(level):
         return (6 * ((level)) ** 2 + 94)
@@ -71,6 +66,8 @@ class Levels(commands.Cog):
         else:
             if amount > 0:
                 MOC_DB.execute("INSERT INTO XP (GuildID, UserID, XP) VALUES (%s, %s, %s)", member.guild.id, member.id, int(amount))
+        await self.level_integrity(member)
+        await self.update_roles(member)
 
     async def set_xp(self, member, value: int):
         if value > 0:
@@ -78,6 +75,7 @@ class Levels(commands.Cog):
             await self.add_xp(member, value - (current_xp if current_xp is not None else 0))
         else:
             MOC_DB.execute("DELETE FROM XP WHERE GuildID = %s AND UserID = %s", member.guild.id, member.id)
+            await self.update_roles(member)
 
     async def message_xp(self, message):
         xplock = MOC_DB.field(
@@ -275,7 +273,6 @@ class Levels(commands.Cog):
         await self.set_xp(member, value)
         await member.send(embed=self.bot.create_embed("MOCBOT LEVELS", f"**{interaction.user}** has set your XP in the **{interaction.guild.name}** server to **{value} XP**.", None))
         await interaction.response.send_message(f"The user {member.mention} successfully had their XP set to **{value}**", ephemeral=True)
-
 
 
 async def setup(bot):
