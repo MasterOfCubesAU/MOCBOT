@@ -69,7 +69,8 @@ class Levels(commands.Cog):
 
     async def set_xp(self, member, value: int):
         if value > 0:
-            await self.add_xp(member, value - await self.get_xp(member))
+            current_xp = await self.get_xp(member)
+            await self.add_xp(member, value - (current_xp if current_xp is not None else 0))
         else:
             MOC_DB.execute("DELETE FROM XP WHERE GuildID = %s AND UserID = %s", member.guild.id, member.id)
 
