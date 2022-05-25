@@ -1,11 +1,12 @@
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.ui import Button, View, Modal, TextInput, Select
-from discord import app_commands, Interaction, NotFound, PermissionOverwrite, Object
+from discord import app_commands, Interaction, NotFound, PermissionOverwrite, Object, Status
 from lib.bot import config, logger, MOCBOT, DEV_GUILD, MOC_DB
 from typing import Literal, Union, Optional
 import discord
 import asyncio
 
+from random import randint
 
 class LobbyPrompt(View):
     def __init__(self, *, timeout=180, interaction: discord.Interaction):
@@ -324,6 +325,7 @@ class Lobbies(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.lobby_offline_detection.start()
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -334,6 +336,34 @@ class Lobbies(commands.Cog):
             return bool(MOC_DB.field("SELECT LOBBY_CATEGORY FROM Guild_Settings WHERE GuildID = %s", interaction.guild.id))
         return app_commands.check(predicate)
 
+    @tasks.loop(seconds=10)
+    async def lobby_offline_detection(self):
+        lobbies = MOC_DB.records("SELECT * FROM Lobbies")
+        for lobby in lobbies:
+            if(guild := self.bot.get_guild(lobby[0])) != None and (member := guild.get_member(lobby[5])) != None:
+                if member.status == Status.offline:
+                    vc_channel = guild.get_channel(lobby[2])
+                    if vc_channel.members:
+                        new_lobby_leader = vc_channel.members[randint(0, len(vc_channel.members) - 1)]
+                        while new_lobby_leader.bot:
+                            new_lobby_leader =  vc_channel.members[randint(0, len(vc_channel.members) - 1)]
+                            # Transfer lobby to new_lobby_leader
+                        MOC_DB.execute("DELETE FROM LobbyUsers WHERE GuildID = %s AND UserID = %s", lobby[0], new_lobby_leader.id)
+                        MOC_DB.execute("INSERT INTO LobbyUsers (UserID, GuildID, LobbyName) VALUES (%s, %s, %s)", lobby[5], lobby[0], lobby[1])
+                        MOC_DB.execute("UPDATE Lobbies SET LeaderID = %s WHERE GuildID = %s AND LobbyName = %s", new_lobby_leader.id, lobby[0], lobby[1])
+                        await new_lobby_leader.send(embed=self.bot.create_embed("MOCBOT LOBBIES", f"You are now the lobby leader for **{lobby[1]}** because the original lobby leader went offline.", None), view=View().add_item(discord.ui.Button(label="Join lobby",style=discord.ButtonStyle.link, url=str(await member.guild.get_channel(lobby[2]).create_invite(reason=f"{new_lobby_leader} become leader of {lobby[1]}")))))
+                        await member.send(embed=self.bot.create_embed("MOCBOT LOBBIES", f"Your lobby has been transferred to {new_lobby_leader} because you went offline.", None))
+                    else:
+                        await self.bot.get_channel(lobby[2]).delete(reason=f"[AUTO DELETE {lobby[1]}] {member} went offline")
+                        await self.bot.get_channel(lobby[3]).delete(reason=f"[AUTO DELETE {lobby[1]}] {member} deleted {lobby[1]}")
+                        await guild.get_role(lobby[4]).delete(reason=f"{member} deleted {lobby[1]}")
+                        MOC_DB.execute("DELETE FROM Lobbies WHERE GuildID = %s AND LeaderID = %s", guild.id, member.id)
+                        MOC_DB.execute("DELETE FROM LobbyUsers WHERE GuildID = %s AND LobbyName = %s", guild.id, lobby[1])
+                        await member.send(embed=self.bot.create_embed("MOCBOT LOBBIES", f"Your lobby has been deleted because you went offline.", None))
+
+    @lobby_offline_detection.before_loop
+    async def before_lobby_offline_detection(self):
+        await self.bot.wait_until_ready()
 
     @app_commands.command(name="lobby", description="Open/manage a MOCBOT lobby.")
     #  @app_commands.guilds(DEV_GUILD)
