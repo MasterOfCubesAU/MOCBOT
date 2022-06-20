@@ -155,8 +155,7 @@ class Commands(commands.Cog):
             embed_content = f'''
             >>> User: **{target.name}** ({target.id})
             
-            **{target.name}** joined **{interaction.guild}** at `{target.joined_at.strftime("%I:%M%p, %d/%m/%Y %Z")}`
-            and created their account at `{target.created_at.strftime("%I:%M%p, %d/%m/%Y %Z")}`
+            **{target.name}** joined **{interaction.guild}** at `{target.joined_at.strftime("%I:%M%p, %d/%m/%Y %Z")}` and created their account at `{target.created_at.strftime("%I:%M%p, %d/%m/%Y %Z")}`
             '''
         else:
             embed_content = f'''
