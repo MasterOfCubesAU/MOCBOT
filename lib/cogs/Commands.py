@@ -145,6 +145,28 @@ class Commands(commands.Cog):
         view.add_item(discord.ui.Button(label="View account",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/{interaction.guild.id}/account"))
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT HELP", f"Use the button below to access your MOCBOT account.", None), view=view)
 
+    @app_commands.command(name="info", description="Displays info for a user/server.")
+    @app_commands.describe(
+        member="The member to search for."
+    )
+    async def info(self, interaction: discord.Interaction, member: Optional[discord.Member]):
+        target = member or interaction.guild
+        if isinstance(target, discord.Member):
+            embed_content = f'''
+            >>> User: **{target.name}** ({target.id})
+            
+            **{target.name}** joined **{interaction.guild}** at `{target.joined_at.strftime("%I:%M%p, %d/%m/%Y %Z")}`
+            and created their account at `{target.created_at.strftime("%I:%M%p, %d/%m/%Y %Z")}`
+            '''
+        else:
+            embed_content = f'''
+            >>> Server: **{target}** ({target.id})
+            
+            **{target}** was created at `{target.created_at.strftime("%I:%M%p, %d/%m/%Y %Z")}` and is owned by {target.owner.mention}
+            '''
+        embed = self.bot.create_embed("MOCBOT PROFILE", f"{embed_content}", None)
+        await interaction.response.send_message(embed=embed)
+
 
 
 async def setup(bot):
