@@ -1,6 +1,6 @@
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.ui import Button, View
-from discord import app_commands, File, Object
+from discord import app_commands, File, Object, Status
 from lib.bot import config, logger, MOCBOT, DEV_GUILD, MOC_DB
 from typing import Literal, Union, Optional
 import discord
@@ -14,19 +14,25 @@ import math
 import json
 
 
-
 class Levels(commands.Cog):
+
+    voiceXPInterval = 5 # every x minutes
 
     def __init__(self, bot):
         self.bot = bot
         self.global_multiplier = 1
         self.messages_xp = 4
+        self.voice_xp_rate = 48 # per hour
 
     @commands.Cog.listener()
     async def on_ready(self):
         logger.info(f"[COG] Loaded {self.__class__.__name__}")
         await self.level_integrity()
         await self.update_roles()
+        self.voice_xp.start()
+
+    async def cog_unload(self):
+        self.voice_xp.stop()
 
     # Helper Functions
     async def get_required_xp(level):
@@ -217,6 +223,27 @@ class Levels(commands.Cog):
         template.save(tempFile, format="PNG", optimize=True)
         tempFile.seek(0)
         return File(tempFile, "rank.png")
+
+    @tasks.loop(minutes=voiceXPInterval)
+    async def voice_xp(self):
+        for guild in self.bot.guilds:
+            for channel in guild.voice_channels:
+                real_members = [member for member in channel.members if not member.bot and (member.status == Status.online) and not (member.voice.self_mute or member.voice.self_deaf)]
+                if len(real_members) >= 2:
+                    if len(real_members) > 2:
+                        local_multiplier = 0.125 * (len(real_members) - 2)
+                    else:
+                        local_multiplier = 0
+                    xp = round(((local_multiplier + 1) * (self.voice_xp_rate/(60/self.voiceXPInterval)))) * self.global_multiplier
+                    for member in real_members:
+                        if member.id not in config["DEVELOPERS"]:
+                            if await self.is_ranked(member):
+                                vc_xplock = MOC_DB.field("SELECT VC_XPLock FROM XP WHERE UserID = %s AND GuildID = %s", member.id, member.guild.id)
+                                if(datetime.datetime.utcnow() > datetime.datetime.fromisoformat(str(vc_xplock))):
+                                    await self.add_xp(member, xp)
+                                    MOC_DB.execute("UPDATE XP SET VC_XPLock = %s WHERE UserID = %s AND GuildID = %s",(datetime.datetime.utcnow() + datetime.timedelta(minutes=9)).isoformat(), member.id, member.guild.id)
+                            else:
+                                await self.add_xp(member, xp)
 
     # Commands
     @app_commands.command(name="leaderboard", description="Displays the server leaderboard.")
