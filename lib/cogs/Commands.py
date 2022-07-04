@@ -55,7 +55,7 @@ class Commands(commands.Cog):
 
     @app_commands.command(name="purge", description="Remove content from a channel.")
   #  @app_commands.guilds(DEV_GUILD)
-    @app_commands.checks.has_permissions(administrator=True, manage_messages=True)
+    @app_commands.checks.has_permissions(manage_messages=True)
     @app_commands.describe(
         quantity="The amount of messages to purge. Limited to 100.",
         user="The user to purge. Omit for channel purging."
