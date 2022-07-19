@@ -43,6 +43,14 @@ class Levels(commands.Cog):
             return int(math.sqrt((xp - 94) / 6))
         else:
             return 0
+    
+    async def xp_away(self, member):
+        if await self.is_ranked(member):
+            current_xp = await self.get_xp(member)
+            current_level = await self.get_level(member)
+            required_xp = 6 * ((current_level + 1)) ** 2 + 94
+            xp_difference = required_xp - current_xp
+            return xp_difference
 
     async def is_ranked(self, member):
         return bool(MOC_DB.field("SELECT UserID FROM XP WHERE (GuildID = %s AND UserID = %s)", member.guild.id, member.id))
@@ -72,8 +80,9 @@ class Levels(commands.Cog):
         else:
             if amount > 0:
                 MOC_DB.execute("INSERT INTO XP (GuildID, UserID, XP) VALUES (%s, %s, %s)", member.guild.id, member.id, int(amount))
-        await self.level_integrity(member)
+        level_up_required = await self.level_integrity(member)
         await self.update_roles(member)
+        return level_up_required
 
     async def set_xp(self, member, value: int):
         if value > 0:
@@ -91,7 +100,8 @@ class Levels(commands.Cog):
         )
         if xplock:
             if datetime.datetime.utcnow() > datetime.datetime.fromisoformat(str(xplock)):
-                await self.add_xp(message.author, self.messages_xp * self.global_multiplier)
+                if await self.add_xp(message.author, self.messages_xp * self.global_multiplier):
+                    await message.channel.send(message.author.mention, file=await self.generate_level_up_card(message.author))
                 MOC_DB.execute(
                     "UPDATE XP SET XPLock = %s WHERE UserID = %s AND GuildID = %s",
                     (datetime.datetime.utcnow() + datetime.timedelta(seconds=60)).isoformat(),
@@ -100,6 +110,7 @@ class Levels(commands.Cog):
                 )
         else:
             await self.add_xp(message.author, self.messages_xp * self.global_multiplier)
+
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -110,8 +121,6 @@ class Levels(commands.Cog):
             and message.guild
         ):
             await self.message_xp(message)
-            await self.level_integrity(message.author)
-            await self.update_roles(message.author)
 
     def keystoint(self, x):
         return {int(k): v for k, v in x.items()}
@@ -119,8 +128,11 @@ class Levels(commands.Cog):
     async def level_integrity(self, member=None):
         if member and await self.is_ranked(member):
             correct_level = await self.calculate_correct_level(await self.get_xp(member))
-            if await self.get_level(member) != correct_level:
+            current_level = await self.get_level(member)
+            if current_level != correct_level:
                 MOC_DB.execute("UPDATE XP SET Level = %s WHERE UserID = %s AND GuildID = %s", correct_level, member.id, member.guild.id)
+                if current_level < correct_level:
+                   return True               
         else:
             data = MOC_DB.records("SELECT * FROM XP")
             for record in data:
@@ -159,6 +171,28 @@ class Levels(commands.Cog):
                 if (guild := self.bot.get_guild(record[0])) != None:
                     for member in guild.members:
                         await self.update_roles(member)
+
+    async def generate_level_up_card(self, member):
+        template = Image.open("./assets/levels/template.jpg")
+        raw_avatar = requests.get(member.display_avatar.url, stream=True)
+        avatar = Image.open(raw_avatar.raw).convert("RGBA")
+        canvas = ImageDraw.Draw(template)
+         
+        canvas.text((329, 90), str("YOU HAVE "), fill="#ffffff", font=ImageFont.truetype("./assets/fonts/Bebas.ttf", size=75))
+
+        x_offset = ImageFont.truetype("./assets/fonts/Bebas.ttf", size=75).getsize(str("YOU HAVE "))[0]
+        canvas.text((329 + x_offset, 90),"LEVELLED UP!",fill="#dc3545",font=ImageFont.truetype("./assets/fonts/Bebas.ttf", size=75))
+        canvas.text((329, 179),"LEVEL {}".format(await self.get_level(member)),fill="#dc3545",font=ImageFont.truetype("./assets/fonts/Bebas.ttf", size=50))
+
+        x_offset =  ImageFont.truetype("./assets/fonts/Bebas.ttf", size=50).getsize("LEVEL {}".format(await self.get_level(member)))[0]
+        canvas.text((329+ x_offset + 10, 179,),"NEXT LEVEL {} XP AWAY".format(await self.xp_away(member)),fill="rgb(80, 80, 80)",font=ImageFont.truetype("./assets/fonts/Bebas.ttf", size=50))
+        
+        avatar = avatar.resize((225, 225), 0)
+        template.paste(avatar, (60, 40), mask=avatar)
+        tempFile = BytesIO()
+        template.save(tempFile, format="PNG", optimize=True)
+        tempFile.seek(0)
+        return File(tempFile, "level_up.png")
 
     async def generate_rank_card(self, member):
         template = Image.open("./assets/levels/template.jpg")
