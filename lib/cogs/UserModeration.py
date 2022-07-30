@@ -4,6 +4,7 @@ from discord import app_commands
 from lib.bot import config, logger, MOCBOT, DEV_GUILD, MOC_DB
 from typing import Literal, Union, Optional
 import discord
+import uuid
 
 class ConfirmButtons(View):
     def __init__(self, *, timeout=10):
@@ -91,6 +92,24 @@ class UserModeration(commands.Cog):
         view=View()
         view.add_item(discord.ui.Button(label="View account",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/{interaction.guild.id}/account"))
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT WARNINGS", f"You can view all your warnings on your account page.", None), ephemeral=True, view=view)
+
+    WarnGroup = app_commands.Group(name="warn", description="Manages user warnings.", guild_ids=[422983658257907732])
+    # @app_commands.guilds(DEV_GUILD)
+    
+    @WarnGroup.command(name="add", description="Adds a warning to a user.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    @app_commands.describe(
+        user="The user you would like to warn.",
+        reason="The reason for warning this user."
+    )
+    async def add(self, interaction: discord.Interaction, user: discord.User, reason: str):
+        view=View()
+        view.add_item(discord.ui.Button(label="View account",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/{interaction.guild.id}/account"))
+        MOC_DB.execute("INSERT INTO Warnings (WarningID, UserID, GuildID, Reason, AdminID) VALUES (%s, %s, %s, %s, %s)", str(uuid.uuid4()), user.id, interaction.guild.id, reason, interaction.user.id)
+        await user.send(embed=self.bot.create_embed("MOCBOT WARNINGS", f"You have been warned in **{interaction.guild}** by {interaction.user.mention} for **{reason}**. Please refer to your MOCBOT account to view your warnings.", None), view=view)
+        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT WARNINGS", f"{user.mention} has successfully been warned for **{reason}**.", None), ephemeral=True)
+
+
     
 
 async def setup(bot):
