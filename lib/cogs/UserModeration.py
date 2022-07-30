@@ -93,7 +93,7 @@ class UserModeration(commands.Cog):
         view.add_item(discord.ui.Button(label="View account",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/{interaction.guild.id}/account"))
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT WARNINGS", f"You can view all your warnings on your account page.", None), ephemeral=True, view=view)
 
-    WarnGroup = app_commands.Group(name="warn", description="Manages user warnings.", guild_ids=[422983658257907732])
+    WarnGroup = app_commands.Group(name="warn", description="Manages user warnings.")
     # @app_commands.guilds(DEV_GUILD)
     
     @WarnGroup.command(name="add", description="Adds a warning to a user.")
