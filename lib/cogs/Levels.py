@@ -262,7 +262,7 @@ class Levels(commands.Cog):
     async def voice_xp(self):
         for guild in self.bot.guilds:
             for channel in guild.voice_channels:
-                real_members = [member for member in channel.members if not member.bot and (member.status == Status.online) and not (member.voice.self_mute or member.voice.self_deaf)]
+                real_members = [member for member in channel.members if not member.bot and not (member.voice.self_mute or member.voice.self_deaf)]
                 if len(real_members) >= 2:
                     if len(real_members) > 2:
                         local_multiplier = 0.125 * (len(real_members) - 2)
@@ -270,7 +270,7 @@ class Levels(commands.Cog):
                         local_multiplier = 0
                     xp = round(((local_multiplier + 1) * (self.voice_xp_rate/(60/self.voiceXPInterval)))) * self.global_multiplier
                     for member in real_members:
-                        if member.id not in config["DEVELOPERS"]:
+                        if member.id not in config["DEVELOPERS"] and (member.status == Status.online):
                             if await self.is_ranked(member):
                                 vc_xplock = MOC_DB.field("SELECT VC_XPLock FROM XP WHERE UserID = %s AND GuildID = %s", member.id, member.guild.id)
                                 if(datetime.datetime.utcnow() > datetime.datetime.fromisoformat(str(vc_xplock))):
