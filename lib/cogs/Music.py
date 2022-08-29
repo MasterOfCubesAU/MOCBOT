@@ -224,7 +224,9 @@ class Music(commands.Cog):
     async def seek(self, interaction: discord.Interaction, time: int):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         if time < 0 or time > player.current.duration/1000:
-            return await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"You may only seek between `0 and {player.current.duration/1000}` seconds.", None))
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"You may only seek between `0 and {player.current.duration/1000}` seconds.", None))
+            await asyncio.sleep(10)
+            return await interaction.delete_original_response()
         if not player.current.is_seekable:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"This media does not support seeking.", None))
             await asyncio.sleep(10)
@@ -280,7 +282,7 @@ class Music(commands.Cog):
     @app_commands.guilds(DEV_GUILD, MOC_GUILD)
     async def filters(self,  interaction: discord.Interaction):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
-        await interaction.response.send_message(view=FilterDropdownView(player))
+        await interaction.response.send_message(view=FilterDropdownView(player, interaction))
 
 async def setup(bot):
     await bot.add_cog(Music(bot))
