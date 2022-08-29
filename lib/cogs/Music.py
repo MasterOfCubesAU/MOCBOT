@@ -105,7 +105,7 @@ class Music(commands.Cog):
             logger.info(f"[MUSIC] [{guild} // {guild_id}] Playing {player.current.title} - {player.current.uri}")
             if guild_id in self.players:
                 if player.current.stream:
-                    MusicFilters.clear_all(player)
+                    await MusicFilters.clear_all(player)
                 embed = self.bot.create_embed("MOCBOT MUSIC", f"> NOW PLAYING: [{player.current.title}]({player.current.uri})", None)
                 embed.add_field(name="Duration",value=await self.formatDuration(player.current.duration) if not player.current.stream else "LIVE STREAM",inline=True)
                 embed.add_field(name="Uploader", value=player.current.author, inline=True)
