@@ -147,7 +147,7 @@ class Music(commands.Cog):
         # Results could be None if Lavalink returns an invalid response (non-JSON/non-200 (OK)).
         # ALternatively, results.tracks could be an empty array if the query yielded no tracks.
         if not results or not results.tracks:
-            return await interaction.followup.send('No media matching your search query was found.')
+            return await interaction.followup.send('No media matching your search query was found.', ephemeral=True)
 
 
         # Valid loadTypes are:
