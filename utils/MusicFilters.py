@@ -4,9 +4,9 @@ from lavalink.filters import LowPass, Rotation, Timescale, Distortion, Vibrato, 
 
 
 class FilterDropdown(discord.ui.Select):
-    def __init__(self, player, message):
+    def __init__(self, player, latest_interaction):
         self.player = player
-        self.messageView = message
+        self.latest_interaction = latest_interaction
 
         # Set the options that will be presented inside the dropdown
         options = [
@@ -32,20 +32,29 @@ class FilterDropdown(discord.ui.Select):
                 await getattr(MusicFilters, filter)(self.player)
         else:
             await MusicFilters.clear_all(self.player)
-        await self.messageView.delete()
+        await self.latest_interaction.delete_original_response()
         await interaction.response.send_message(embed=interaction.client.create_embed("MOCBOT MUSIC", f"Applied filters: {', '.join([filter.label for filter in self.options if filter.value in self.values])}" if self.values else "Removed all filters", None))
         await asyncio.sleep(10)
         await interaction.delete_original_response()
 
 
 class FilterDropdownView(discord.ui.View):
-    def __init__(self, player):
+    def __init__(self, player, interaction):
         super().__init__(timeout=60)
-        # Adds the dropdown to our view object.
-        self.add_item(FilterDropdown(player, self.interaction))
+        self.player = player
+        self.add_item(FilterDropdown(player, interaction))
+        self.latest_interaction = interaction
+        
+        clear_button = discord.ui.Button(label="Clear Active Filters", style=discord.ButtonStyle.red)
+        clear_button.callback = self.clear_button_callback
+        self.add_item(clear_button)
+    
+    async def clear_button_callback(self, interaction):
+         await MusicFilters.clear_all(self.player)
+         await self.latest_interaction.delete_original_response()
 
-    async def on_timeout(self) -> None:
-        await self.interaction.delete_original_response()
+    async def on_timeout(self):
+       await self.latest_interaction.delete_original_response()
 
 class MusicFilters:
     def __init__(self, player) -> None:
