@@ -223,12 +223,12 @@ class Music(commands.Cog):
     @interaction_ensure_voice
     async def seek(self, interaction: discord.Interaction, time: int):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
-        if time < 0 or time > player.current.duration/1000:
-            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"You may only seek between `0 and {player.current.duration/1000}` seconds.", None))
-            await asyncio.sleep(10)
-            return await interaction.delete_original_response()
         if not player.current.is_seekable:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"This media does not support seeking.", None))
+            await asyncio.sleep(10)
+            return await interaction.delete_original_response()
+        if time < 0 or time > player.current.duration/1000:
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"You may only seek between `0 and {player.current.duration/1000}` seconds.", None))
             await asyncio.sleep(10)
             return await interaction.delete_original_response()
         await player.seek(time*1000)
