@@ -76,6 +76,8 @@ class MOCBOT(commands.Bot):
             f"Connected on {self.user.name} ({self.mode}) | d.py v{str(discord.__version__)}"
         )
 
+    async def on_interaction(self, interaction):
+        logger.info(f"[COMMAND] [{interaction.guild} // {interaction.guild.id}] {interaction.user} ({interaction.user.id}) used command {interaction.command.name}")
 
     async def on_message(self, message):
         await self.wait_until_ready()
