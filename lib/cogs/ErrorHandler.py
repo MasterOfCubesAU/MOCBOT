@@ -1,4 +1,5 @@
 from discord.ext import commands
+from discord.app_commands import errors
 from discord.ui import Button, View
 from discord import app_commands
 from lib.bot import config, logger, MOCBOT, DEV_GUILD, MOC_DB
@@ -20,8 +21,11 @@ class ErrorHandler(commands.Cog):
         logger.info(f"[COG] Loaded {self.__class__.__name__}")
         
     async def on_app_command_error(self, interaction, error):
-        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT ERROR", error, 0xFF0000), ephemeral=True)
-        logger.error(f"[ERROR] Interaction Error: {error}")
+        embed = self.bot.create_embed("MOCBOT ERROR", "An unexpected error has occurred.", 0xFF0000)
+        embed.add_field(name="ERROR:", value="> {}\n\nIf this error is a regular occurrence, please contact the team with `/contact`. This error has been logged.".format(str(error)), inline=False)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        
+        logger.error(f"[ERROR] Unhandled Error: {error}")
         traceback.print_exc()
 
 

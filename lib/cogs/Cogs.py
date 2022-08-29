@@ -7,6 +7,7 @@ import discord
 
 from glob import glob
 import os
+import traceback
 
 
 class Cogs(commands.Cog):
@@ -27,6 +28,7 @@ class Cogs(commands.Cog):
             await self.bot.load_extension(f"lib.cogs.{cog}")
         except Exception as e:
             logger.error(f"[COG] {cog} failed to load. {e}")
+            traceback.print_exc()
 
     async def load_cogs(self):
         if not self.unloaded_cogs:
