@@ -88,8 +88,11 @@ class Music(commands.Cog):
             # To save on resources, we can tell the bot to disconnect from the voice channel.
             guild_id = event.player.guild_id
             guild = self.bot.get_guild(guild_id)
+            channel = guild.get_channel(self.players[guild_id]["CHANNEL"])
+            message = await channel.fetch_message(self.players[guild_id]["MESSAGE_ID"])
+
             await guild.voice_client.disconnect(force=True)
-            await self.players[guild_id].delete()
+            await message.delete()
             del self.players[guild_id]
     
     async def next_playing(self, event):
@@ -97,6 +100,8 @@ class Music(commands.Cog):
             guild_id = event.player.guild_id
             player = event.player
             guild = self.bot.get_guild(guild_id)
+            channel = guild.get_channel(self.players[guild_id]["CHANNEL"])
+            message = await channel.fetch_message(self.players[guild_id]["MESSAGE_ID"])
             logger.info(f"[MUSIC] [{guild} // {guild_id}] Playing {player.current.title} - {player.current.uri}")
             if guild_id in self.players:
                 if player.current.stream:
@@ -107,7 +112,7 @@ class Music(commands.Cog):
                 embed.set_image(url=f"https://img.youtube.com/vi/{player.current.identifier}/maxresdefault.jpg")
                 embed.add_field(name="\u200b",value="**[LINK TO SOURCE]({})**".format(player.current.uri),inline=False)
                 embed.set_footer(text=f"Requested by {guild.get_member(player.current.requester)}")
-                await self.players[guild_id].edit(embed=embed)
+                await message.edit(embed=embed)
     
     async def progress_update(self, event):
         if isinstance(event, lavalink.events.PlayerUpdateEvent):
@@ -182,7 +187,8 @@ class Music(commands.Cog):
             embed.add_field(name="\u200b",value="**[LINK TO SOURCE]({})**".format(player.queue[0].uri),inline=False)
             embed.set_footer(text=f"Requested by {interaction.user}")
             await interaction.followup.send(embed=embed)
-            self.players[interaction.guild.id] = await interaction.original_response()
+            message = await interaction.original_response()
+            self.players[interaction.guild.id] = {"CHANNEL": interaction.channel.id, "MESSAGE_ID": message.id}
         
         # We don't want to call .play() if the player is playing as that will effectively skip
         # the current track.
@@ -273,7 +279,9 @@ class Music(commands.Cog):
         await player.stop()
 
         if interaction.guild.id in self.players:
-            await self.players[interaction.guild.id].delete()
+            channel = interaction.guild.get_channel(self.players[interaction.guild.id]["CHANNEL"])
+            message = await channel.fetch_message(self.players[interaction.guild.id]["MESSAGE_ID"])
+            await message.delete()
             del self.players[interaction.guild.id]
 
         # Disconnect from the voice channel.
