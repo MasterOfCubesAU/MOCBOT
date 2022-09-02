@@ -1,4 +1,3 @@
-from ast import match_case
 from discord.ext import commands
 from discord import app_commands
 from lib.bot import config, logger, MOCBOT, DEV_GUILD, MOC_DB, MOC_GUILD
@@ -15,6 +14,7 @@ import asyncio
 import typing
 import datetime
 from functools import reduce
+import requests
 
 class Music(commands.Cog):
 
@@ -194,6 +194,11 @@ class Music(commands.Cog):
         # the current track.
         if not player.is_playing:
             await player.play()
+
+    @play.autocomplete('query')
+    async def autocomplete_callback(self, interaction: discord.Interaction, current: str):
+        search = requests.get(f"http://suggestqueries.google.com/complete/search?client=youtube&ds=yt&client=firefox&q={current.replace(' ', '%20')}")
+        return  [app_commands.Choice(name=result, value=result) for result in search.json()[1]]
 
     @app_commands.command(name="skip", description="Skips the current media to the next one in queue.")
     @app_commands.guilds(DEV_GUILD, MOC_GUILD)
