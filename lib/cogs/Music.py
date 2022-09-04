@@ -126,7 +126,7 @@ class Music(commands.Cog):
         await asyncio.sleep(Music.MESSAGE_ALIVE_TIME)
         await interaction.delete_original_response()
        
-    @app_commands.command(name="play", description="Search and play media from YouTube, Spotify, SoundCloud etc.")
+    @app_commands.command(name="play", description="Search and play media from YouTube, Spotify, SoundCloud, Apple Music etc.")
     @app_commands.guilds(DEV_GUILD, MOC_GUILD)
     @app_commands.describe(
         query="A search query or URL to the media."
