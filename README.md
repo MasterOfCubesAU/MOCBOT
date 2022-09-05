@@ -1,4 +1,6 @@
 
+![](https://mocbot.masterofcubesau.com/static/media/github_banner_slim.png)
+
 [![GPLv3 License](https://img.shields.io/badge/License-GPL%20v3-yellow.svg)](https://opensource.org/licenses/)
 
 # MOCBOT: The Discord Bot
