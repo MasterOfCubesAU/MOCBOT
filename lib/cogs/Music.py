@@ -127,7 +127,6 @@ class Music(commands.Cog):
         await interaction.delete_original_response()
        
     @app_commands.command(name="play", description="Search and play media from YouTube, Spotify, SoundCloud, Apple Music etc.")
-    @app_commands.guilds(DEV_GUILD, MOC_GUILD)
     @app_commands.describe(
         query="A search query or URL to the media."
     )
@@ -202,7 +201,6 @@ class Music(commands.Cog):
             return [app_commands.Choice(name=result, value=result) for result in search.json()[1]]
 
     @app_commands.command(name="skip", description="Skips the current media to the next one in queue.")
-    @app_commands.guilds(DEV_GUILD, MOC_GUILD)
     @app_commands.describe(
         position="The queue item number to skip to."
     )
@@ -220,13 +218,11 @@ class Music(commands.Cog):
         await self.delay_delete(interaction)
     
     @app_commands.command(name="queue", description="Retrieve the music queue.")
-    @app_commands.guilds(DEV_GUILD, MOC_GUILD)
     async def queue(self, interaction: discord.Interaction):
         pages = QueueMenu(source=QueuePagination(self.bot.lavalink.player_manager.get(interaction.guild.id), interaction=interaction, MusicCls=self), interaction=interaction)
         await pages.start(await discord.ext.commands.Context.from_interaction(interaction))
 
     @app_commands.command(name="seek", description="Seeks the current song.")
-    @app_commands.guilds(DEV_GUILD, MOC_GUILD)
     @app_commands.describe(
         time="The time in seconds to seek to."
     )
@@ -246,7 +242,6 @@ class Music(commands.Cog):
         await self.delay_delete(interaction)
    
     @app_commands.command(name="loop", description="Loop the current media or queue.")
-    @app_commands.guilds(DEV_GUILD, MOC_GUILD)
     async def loop(self, interaction: discord.Interaction, type: Literal["Song", "Queue (WIP)"]):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         if player is None:
@@ -262,7 +257,6 @@ class Music(commands.Cog):
 
 
     @app_commands.command(name="disconnect", description="Disconnects the bot from voice.")
-    @app_commands.guilds(DEV_GUILD, MOC_GUILD)
     async def disconnect(self, interaction: discord.Interaction):
         """ Disconnects the player from the voice channel and clears its queue. """
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
@@ -296,7 +290,6 @@ class Music(commands.Cog):
         await self.delay_delete(interaction)
 
     @app_commands.command(name="filters", description="Toggles audio filters")
-    @app_commands.guilds(DEV_GUILD, MOC_GUILD)
     async def filters(self,  interaction: discord.Interaction):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         if player is None:
