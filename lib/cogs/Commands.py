@@ -37,7 +37,7 @@ class Commands(commands.Cog):
 
     @app_commands.command(name="announce", description="Announces a message to a given audience and channel")
   #  @app_commands.guilds(DEV_GUILD)
-    @app_commands.checks.has_permissions(administrator=True, manage_guild=True)
+    @app_commands.checks.has_permissions(manage_guild=True)
     @app_commands.describe(
         audience="The audience group to target.",
         channel="The text channel to target."
