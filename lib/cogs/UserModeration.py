@@ -37,7 +37,7 @@ class UserModeration(commands.Cog):
 
     @app_commands.command(name="kick", description="Kicks specified user.")
     # @app_commands.guilds(DEV_GUILD)
-    @app_commands.checks.has_permissions(administrator=True, kick_members=True)
+    @app_commands.checks.has_permissions(kick_members=True)
     @app_commands.describe(
         member="The member you would like to kick.",
         reason="The reason for kicking this user."
@@ -52,7 +52,7 @@ class UserModeration(commands.Cog):
 
     @app_commands.command(name="ban", description="Bans specified user permanently.")
     # @app_commands.guilds(DEV_GUILD)
-    @app_commands.checks.has_permissions(administrator=True, ban_members=True)
+    @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.describe(
         user="The user you would like to ban.",
         reason="The reason for banning this user."
@@ -72,7 +72,7 @@ class UserModeration(commands.Cog):
 
     @app_commands.command(name="unban", description="Unbans specified user.")
     # @app_commands.guilds(DEV_GUILD)
-    @app_commands.checks.has_permissions(administrator=True, ban_members=True)
+    @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.describe(
         user="The user you would like to unban.",
         reason="The reason for unbanning this user."
