@@ -60,7 +60,7 @@ class UserModeration(commands.Cog):
     async def ban(self, interaction: discord.Interaction, user: discord.User, reason: str):
         view = ConfirmButtons()
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MODERATION", f"Are you sure you'd like to ban {user.mention}{f' for {reason}?' if reason else '?'}", 0xFFA500), ephemeral=True, view=view)
-        view.message = await interaction.original_message()
+        view.message = await interaction.original_response()
         await view.wait()
         if view.confirmed:
             try:
