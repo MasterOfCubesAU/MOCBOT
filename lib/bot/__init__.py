@@ -15,6 +15,7 @@ with open("./config.yml", "r") as f:
     config = yaml.safe_load(f)
 
 DEV_GUILD = discord.Object(id=config["GUILD_IDS"]["DEV"])
+MOC_GUILD = discord.Object(id=config["GUILD_IDS"]["MOC"])
 
 from lib.db import MOC_DB
 MOC_DB = MOC_DB()
