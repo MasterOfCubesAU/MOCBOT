@@ -11,6 +11,14 @@ Manage MOCBOT configuration through the [MOCBOT Website](https://mocbot.masterof
 
 
 
+## Usage
+
+Invite MOCBOT into your Discord server [here](https://discord.com/api/oauth2/authorize?client_id=417962459811414027&permissions=8&scope=bot%20applications.commands).
+
+Type `/` in your Discord server to see available commands. Alternatively, you may view all commands [here](https://mocbot.masterofcubesau.com/commands)
+
+
+
 ## Authors
 
 - [@MasterOfCubesAU](https://www.github.com/MasterOfCubesAU)
