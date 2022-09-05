@@ -17,7 +17,7 @@ class LobbyPrompt(View):
 
 
     async def on_timeout(self) -> None:
-        await self.interaction.delete_original_message()
+        await self.interaction.delete_original_response()
 
     async def interaction_check(self, interaction: discord.Interaction):
         return interaction.user and interaction.user.id == self.interaction.user.id
@@ -122,7 +122,7 @@ class LobbyPrompt(View):
             return MOC_DB.record("SELECT * FROM Lobbies WHERE GuildID = %s AND LobbyName = %s", member.guild.id, lobby_name)
 
     async def updateView(self):
-        await self.interaction.edit_original_message(embed=self.getEmbed(), view=self)
+        await self.interaction.edit_original_response(embed=self.getEmbed(), view=self)
 
     def updateOptions(self):
         self.clear_items()
@@ -188,7 +188,7 @@ class LobbyPrompt(View):
             
     async def delete_prompt(self):
         try:
-            await self.interaction.delete_original_message()
+            await self.interaction.delete_original_response()
         except NotFound:
             await self.interaction.message.delete()
     
@@ -206,7 +206,7 @@ class LobbyPrompt(View):
 
     async def invite_button_callback(self, interaction:discord.Interaction):
         await interaction.response.send_message(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"To invite users into your lobby, mention the users you'd like to invite below.", None))
-        prompt = await interaction.original_message()
+        prompt = await interaction.original_response()
         
         def check(message):
             return (message.author == interaction.user and message.channel == interaction.channel)
@@ -226,7 +226,7 @@ class LobbyPrompt(View):
 
     async def kick_button_callback(self, interaction:discord.Interaction):
         await interaction.response.send_message(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"To kick users from your lobby, mention the users you'd like to kick below.", None))
-        prompt = await interaction.original_message()
+        prompt = await interaction.original_response()
         
         def check(message):
             return (message.author == interaction.user and message.channel == interaction.channel)
@@ -247,7 +247,7 @@ class LobbyPrompt(View):
 
     async def transfer_button_callback(self, interaction:discord.Interaction):
         await interaction.response.send_message(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"Mention the user you'd like to transfer your lobby to.", None))
-        prompt = await interaction.original_message()
+        prompt = await interaction.original_response()
 
         def check(message):
             return (message.author == interaction.user and message.channel == interaction.channel)

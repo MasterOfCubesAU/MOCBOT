@@ -93,7 +93,7 @@ class Commands(commands.Cog):
         if older_messages:
             view = ConfirmButtons()
             await interaction.followup.send(embed=self.bot.create_embed("MOCBOT PURGE", f"**{len(older_messages)}** message(s) over 14 days old were found. This will take roughly {await convert(0.75 * len(older_messages))} to delete. Are you sure you'd like to continue?", 0xFFA500), ephemeral=True, view=view)
-            view.message = await interaction.original_message()
+            view.message = await interaction.original_response()
             await view.wait()
             if view.confirmed:
                 await delete_older_messages(older_messages)

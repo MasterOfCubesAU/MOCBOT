@@ -296,7 +296,7 @@ class Levels(commands.Cog):
         member = member if member else interaction.user
         await interaction.response.send_message(file=await self.generate_rank_card(member))
         await asyncio.sleep(10)
-        await interaction.delete_original_message()
+        await interaction.delete_original_response()
 
 
     # XP Commands
