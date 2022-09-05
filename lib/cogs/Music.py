@@ -109,7 +109,7 @@ class Music(commands.Cog):
                 embed = self.bot.create_embed("MOCBOT MUSIC", f"> NOW PLAYING: [{player.current.title}]({player.current.uri})", None)
                 embed.add_field(name="Duration",value=await self.formatDuration(player.current.duration) if not player.current.stream else "LIVE STREAM",inline=True)
                 embed.add_field(name="Uploader", value=player.current.author, inline=True)
-                embed.set_image(url=f"https://img.youtube.com/vi/{player.current.identifier}/maxresdefault.jpg")
+                embed.set_image(url=await self.getMediaThumbnail(player.current.source_name, player.current.identifier))
                 embed.add_field(name="\u200b",value="**[LINK TO SOURCE]({})**".format(player.current.uri),inline=False)
                 embed.set_footer(text=f"Requested by {guild.get_member(player.current.requester)}")
                 await message.edit(embed=embed)
@@ -125,6 +125,17 @@ class Music(commands.Cog):
     async def delay_delete(self, interaction):
         await asyncio.sleep(Music.MESSAGE_ALIVE_TIME)
         await interaction.delete_original_response()
+
+    async def getMediaThumbnail(self, provider, identifier):
+        match provider:
+            case 'youtube':
+                return f"https://img.youtube.com/vi/{identifier}/maxresdefault.jpg"
+            case 'spotify':
+                return requests.get(f'https://open.spotify.com/oembed?url=spotify:track:{identifier}').json()["thumbnail_url"]
+            case 'soundcloud':
+                return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
+            case 'applemusic':
+                return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
        
     @app_commands.command(name="play", description="Search and play media from YouTube, Spotify, SoundCloud, Apple Music etc.")
     @app_commands.describe(
@@ -172,7 +183,7 @@ class Music(commands.Cog):
         
         if player.current is not None:
             embed = self.bot.create_embed("MOCBOT MUSIC", f"> ADDED TO QUEUE: [{player.queue[-1].title}]({player.queue[-1].uri})", None)
-            embed.set_image(url=f"https://img.youtube.com/vi/{player.queue[-1].identifier}/maxresdefault.jpg")
+            embed.set_image(url=await self.getMediaThumbnail(player.queue[-1].source_name, player.queue[-1].identifier))
             embed.add_field(name="POSITION",value=len(player.queue),inline=True)
             embed.add_field(name="QUEUE TIME",value=await self.formatDuration(reduce(lambda a, b: a + b, [song.duration if not song.stream else 0 for song in player.queue])),inline=True)
             embed.set_footer(text=f"Requested by {interaction.user}")
@@ -182,7 +193,7 @@ class Music(commands.Cog):
             embed = self.bot.create_embed("MOCBOT MUSIC", f"> NOW PLAYING: [{player.queue[0].title}]({player.queue[0].uri})", None)
             embed.add_field(name="Duration",value=await self.formatDuration(player.queue[0].duration) if not player.queue[0].stream else "LIVE STREAM",inline=True)
             embed.add_field(name="Uploader", value=player.queue[0].author, inline=True)
-            embed.set_image(url=f"https://img.youtube.com/vi/{player.queue[0].identifier}/maxresdefault.jpg")
+            embed.set_image(url=await self.getMediaThumbnail(player.queue[0].source_name, player.queue[0].identifier))
             embed.add_field(name="\u200b",value="**[LINK TO SOURCE]({})**".format(player.queue[0].uri),inline=False)
             embed.set_footer(text=f"Requested by {interaction.user}")
             await interaction.followup.send(embed=embed)
