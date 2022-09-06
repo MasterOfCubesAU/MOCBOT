@@ -14,9 +14,16 @@ class Cogs(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.disabled_cogs = ["Template"]
+        self.disabled_cogs = []
         self.unloaded_cogs = []
         self.loaded_cogs = []
+        
+        if self.bot.is_dev:
+            for cog in [path.split("\\")[-1][:-3] if os.name == "nt" else path.split("\\")[-1][:-3].split("/")[-1] for path in glob("./lib/cogs/*.py")]:
+                if cog != "Cogs":
+                    self.disabled_cogs.append(cog)
+        else:
+            self.disabled_cogs.append("Template")
 
     async def fetch_cogs(self):
         for cog in [path.split("\\")[-1][:-3] if os.name == "nt" else path.split("\\")[-1][:-3].split("/")[-1] for path in glob("./lib/cogs/*.py")]:
