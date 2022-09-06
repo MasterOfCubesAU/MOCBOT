@@ -63,6 +63,7 @@ class MOCBOT(commands.Bot):
         return embed
 
     #  Doesn't work, need to look into
+    @staticmethod
     def has_permissions(**perms):
         original = app_commands.checks.has_permissions(**perms)
         async def extended_check(interaction):
@@ -71,6 +72,7 @@ class MOCBOT(commands.Bot):
             return interaction.user.id in config["DEVELOPERS"] or (interaction.user.id == 169402073404669952) or await original.predicate(interaction)
         return app_commands.check(extended_check)
 
+    @staticmethod
     def is_developer(interaction: discord.Interaction):
         return interaction.user.id in config["Developers"]
 
