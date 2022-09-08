@@ -4,7 +4,7 @@ import discord
 
 class QueueMenu(View, menus.MenuPages):
     def __init__(self, source, interaction):
-        super().__init__(timeout=60)
+        super().__init__(timeout=20)
         self._source = source
         self.current_page = 0
         self.ctx = None

@@ -1,3 +1,4 @@
+from email.policy import default
 from discord.ext import commands
 from discord import app_commands
 from lib.bot import config, logger, MOCBOT, DEV_GUILD, MOC_DB, MOC_GUILD
@@ -122,19 +123,23 @@ class Music(commands.Cog):
     async def formatDuration(self, ms):
         return datetime.datetime.utcfromtimestamp(ms / 1000).strftime("%Hh %Mm %Ss")
 
-    async def delay_delete(self, interaction):
-        await asyncio.sleep(Music.MESSAGE_ALIVE_TIME)
+    async def delay_delete(self, interaction, time):
+        await asyncio.sleep(time)
         await interaction.delete_original_response()
 
     async def getMediaThumbnail(self, provider, identifier):
         match provider:
             case 'youtube':
-                return f"https://img.youtube.com/vi/{identifier}/maxresdefault.jpg"
+                if requests.get("https://img.youtube.com/vi/{identifier}/maxresdefault.jpg").status_code == 200:
+                    return f"https://img.youtube.com/vi/{identifier}/maxresdefault.jpg"
+                return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
             case 'spotify':
                 return requests.get(f'https://open.spotify.com/oembed?url=spotify:track:{identifier}').json()["thumbnail_url"]
             case 'soundcloud':
                 return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
             case 'applemusic':
+                return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
+            case _:
                 return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
        
     @app_commands.command(name="play", description="Search and play media from YouTube, Spotify, SoundCloud, Apple Music etc.")
@@ -162,7 +167,7 @@ class Music(commands.Cog):
         # ALternatively, results.tracks could be an empty array if the query yielded no tracks.
         if not results or not results.tracks:
             await interaction.followup.send(embed=self.bot.create_embed("MOCBOT MUSIC", f'No media matching the search query `{query}` was found.', None))
-            return await self.delay_delete(interaction)
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
         # Valid loadTypes are:
         #   TRACK_LOADED    - single video/direct URL)
@@ -188,7 +193,7 @@ class Music(commands.Cog):
             embed.add_field(name="QUEUE TIME",value=await self.formatDuration(reduce(lambda a, b: a + b, [song.duration if not song.stream else 0 for song in player.queue])),inline=True)
             embed.set_footer(text=f"Requested by {interaction.user}")
             await interaction.followup.send(embed=embed)
-            await self.delay_delete(interaction)
+            await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         else:
             embed = self.bot.create_embed("MOCBOT MUSIC", f"> NOW PLAYING: [{player.queue[0].title}]({player.queue[0].uri})", None)
             embed.add_field(name="Duration",value=await self.formatDuration(player.queue[0].duration) if not player.queue[0].stream else "LIVE STREAM",inline=True)
@@ -219,14 +224,14 @@ class Music(commands.Cog):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         if player is None:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The skip command requires media to be playing first.", None))
-            return await self.delay_delete(interaction)
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         if position < 1 or position > len(player.queue):
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", "You may only skip to a valid queue item.", None))
-            return await self.delay_delete(interaction)
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         player.queue = player.queue[position - 1:]
         await player.play()
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Successfully skipped to track [{player.current.title}]({player.current.uri}).", None))
-        await self.delay_delete(interaction)
+        await self.delay_delete(interaction, 5)
     
     @app_commands.command(name="queue", description="Retrieve the music queue.")
     async def queue(self, interaction: discord.Interaction):
@@ -241,30 +246,30 @@ class Music(commands.Cog):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         if player is None:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The seek command requires media to be playing first.", None))
-            return await self.delay_delete(interaction)
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         if not player.current.is_seekable:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"This media does not support seeking.", None))
-            return await self.delay_delete(interaction)
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         if time < 0 or time > player.current.duration/1000:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"You may only seek between `0 and {player.current.duration/1000}` seconds.", None))
-            return await self.delay_delete(interaction)
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         await player.seek(time*1000)
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Seeked to `{await self.formatDuration(time*1000)}`.", None))
-        await self.delay_delete(interaction)
+        await self.delay_delete(interaction, 5)
    
     @app_commands.command(name="loop", description="Loop the current media or queue.")
     async def loop(self, interaction: discord.Interaction, type: Literal["Song", "Queue (WIP)"]):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         if player is None:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The loop command requires media to be playing first.", None))
-            return await self.delay_delete(interaction)
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         match type:
             case "Song":
                 player.set_repeat(not player.repeat)
                 await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"{type} looping {'enabled' if player.repeat else 'disabled'}.", None))
             case "Queue (WIP)":
                 await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Not implemented yet.", None))
-        await self.delay_delete(interaction)
+        await self.delay_delete(interaction, 5)
 
 
     @app_commands.command(name="disconnect", description="Disconnects the bot from voice.")
@@ -275,13 +280,13 @@ class Music(commands.Cog):
         if not interaction.guild.voice_client:
             # We can't disconnect, if we're not connected.
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"MOCBOT isn't connected to a voice channel.", None))
-            return await self.delay_delete(interaction)
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
         if not interaction.user.voice or (player.is_connected and  interaction.user.voice.channel.id != int(player.channel_id)):
             # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
             # may not disconnect the bot.
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"You must be in the same channel as MOCBOT to use this command.", None))
-            return await self.delay_delete(interaction)
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
         # Clear the queue to ensure old tracks don't start playing
         # when someone else queues something.
@@ -298,14 +303,14 @@ class Music(commands.Cog):
         # Disconnect from the voice channel.
         await interaction.guild.voice_client.disconnect(force=True)
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"MOCBOT has been stopped and has disconnected.", None))
-        await self.delay_delete(interaction)
+        await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
     @app_commands.command(name="filters", description="Toggles audio filters")
     async def filters(self,  interaction: discord.Interaction):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         if player is None:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The filters command requires media to be playing first.", None))
-            return await self.delay_delete(interaction)
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         await interaction.response.send_message(view=FilterDropdownView(player, interaction))
 
 async def setup(bot):
