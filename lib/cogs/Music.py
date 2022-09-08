@@ -1,3 +1,4 @@
+from email.policy import default
 from discord.ext import commands
 from discord import app_commands
 from lib.bot import config, logger, MOCBOT, DEV_GUILD, MOC_DB, MOC_GUILD
@@ -129,12 +130,16 @@ class Music(commands.Cog):
     async def getMediaThumbnail(self, provider, identifier):
         match provider:
             case 'youtube':
-                return f"https://img.youtube.com/vi/{identifier}/maxresdefault.jpg"
+                if requests.get("https://img.youtube.com/vi/{identifier}/maxresdefault.jpg").status_code == 200:
+                    return f"https://img.youtube.com/vi/{identifier}/maxresdefault.jpg"
+                return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
             case 'spotify':
                 return requests.get(f'https://open.spotify.com/oembed?url=spotify:track:{identifier}').json()["thumbnail_url"]
             case 'soundcloud':
                 return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
             case 'applemusic':
+                return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
+            case _:
                 return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
        
     @app_commands.command(name="play", description="Search and play media from YouTube, Spotify, SoundCloud, Apple Music etc.")
