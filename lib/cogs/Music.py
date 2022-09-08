@@ -130,7 +130,7 @@ class Music(commands.Cog):
     async def getMediaThumbnail(self, provider, identifier):
         match provider:
             case 'youtube':
-                if requests.get("https://img.youtube.com/vi/{identifier}/maxresdefault.jpg").status_code == 200:
+                if requests.get(f"https://img.youtube.com/vi/{identifier}/maxresdefault.jpg").status_code == 200:
                     return f"https://img.youtube.com/vi/{identifier}/maxresdefault.jpg"
                 return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
             case 'spotify':
