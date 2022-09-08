@@ -1,4 +1,5 @@
 from discord.ext import commands
+from discord import app_commands
 import logging.config
 import requests
 import logging
@@ -61,13 +62,19 @@ class MOCBOT(commands.Bot):
         embed.set_author(name=title if title else None, icon_url=self.avatar_url)
         return embed
 
-    def has_permissions(self, **perms):
-        original = commands.has_guild_permissions(**perms).predicate
-        async def extended_check(ctx):
-            if ctx.guild is None:
+    #  Doesn't work, need to look into
+    @staticmethod
+    def has_permissions(**perms):
+        original = app_commands.checks.has_permissions(**perms)
+        async def extended_check(interaction):
+            if interaction.guild is None:
                 return False
-            return ctx.author.id in config["DEVELOPERS"] or (ctx.author.id == self.owner_id) or await original(ctx)
-        return commands.check(extended_check)
+            return interaction.user.id in config["DEVELOPERS"] or (interaction.user.id == 169402073404669952) or await original.predicate(interaction)
+        return app_commands.check(extended_check)
+
+    @staticmethod
+    def is_developer(interaction: discord.Interaction):
+        return interaction.user.id in config["Developers"]
 
     async def on_ready(self):
         self.appinfo = await super().application_info()
