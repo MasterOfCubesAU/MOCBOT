@@ -100,7 +100,7 @@ class Levels(commands.Cog):
         )
         if xplock:
             if datetime.datetime.utcnow() > datetime.datetime.fromisoformat(str(xplock)):
-                if await self.add_xp(message.author, self.messages_xp * self.global_multiplier):
+                if await self.add_xp(message.author, self.messages_xp * self.global_multiplier) and await self.checkLevelUpPerms(message.guild.id):
                     await message.channel.send(message.author.mention, file=await self.generate_level_up_card(message.author))
                 MOC_DB.execute(
                     "UPDATE XP SET XPLock = %s WHERE UserID = %s AND GuildID = %s",
@@ -124,6 +124,9 @@ class Levels(commands.Cog):
 
     def keystoint(self, x):
         return {int(k): v for k, v in x.items()}
+
+    async def checkLevelUpPerms(self, guild_id):
+        return bool(int(MOC_DB.field(f"SELECT XP_LVL_UP_MSG FROM Guild_Settings WHERE GuildID = {guild_id}")))
 
     async def level_integrity(self, member=None):
         if member and await self.is_ranked(member):
