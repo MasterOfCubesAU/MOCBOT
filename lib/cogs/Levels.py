@@ -99,12 +99,12 @@ class Levels(commands.Cog):
             message.guild.id,
         )
         if xplock:
-            if datetime.datetime.utcnow() > datetime.datetime.fromisoformat(str(xplock)):
+            if datetime.datetime.now() > datetime.datetime.fromisoformat(str(xplock)):
                 if await self.add_xp(message.author, self.messages_xp * self.global_multiplier) and await self.checkLevelUpPerms(message.guild.id):
                     await message.channel.send(message.author.mention, file=await self.generate_level_up_card(message.author))
                 MOC_DB.execute(
                     "UPDATE XP SET XPLock = %s WHERE UserID = %s AND GuildID = %s",
-                    (datetime.datetime.utcnow() + datetime.timedelta(seconds=60)).isoformat(),
+                    (datetime.datetime.now() + datetime.timedelta(seconds=60)).isoformat(),
                     message.author.id,
                     message.guild.id,
                 )
@@ -278,7 +278,7 @@ class Levels(commands.Cog):
                                 vc_xplock = MOC_DB.field("SELECT VC_XPLock FROM XP WHERE UserID = %s AND GuildID = %s", member.id, member.guild.id)
                                 if(datetime.datetime.now() > datetime.datetime.fromisoformat(str(vc_xplock))):
                                     await self.add_xp(member, xp)
-                                    MOC_DB.execute("UPDATE XP SET VC_XPLock = %s WHERE UserID = %s AND GuildID = %s",(datetime.datetime.utcnow() + datetime.timedelta(minutes=9)).isoformat(), member.id, member.guild.id)
+                                    MOC_DB.execute("UPDATE XP SET VC_XPLock = %s WHERE UserID = %s AND GuildID = %s",(datetime.datetime.now() + datetime.timedelta(minutes=9)).isoformat(), member.id, member.guild.id)
                             else:
                                 await self.add_xp(member, xp)
 
