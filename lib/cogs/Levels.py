@@ -276,7 +276,7 @@ class Levels(commands.Cog):
                         if member.id not in config["DEVELOPERS"] and (member.status == Status.online):
                             if await self.is_ranked(member):
                                 vc_xplock = MOC_DB.field("SELECT VC_XPLock FROM XP WHERE UserID = %s AND GuildID = %s", member.id, member.guild.id)
-                                if(datetime.datetime.utcnow() > datetime.datetime.fromisoformat(str(vc_xplock))):
+                                if(datetime.datetime.now() > datetime.datetime.fromisoformat(str(vc_xplock))):
                                     await self.add_xp(member, xp)
                                     MOC_DB.execute("UPDATE XP SET VC_XPLock = %s WHERE UserID = %s AND GuildID = %s",(datetime.datetime.utcnow() + datetime.timedelta(minutes=9)).isoformat(), member.id, member.guild.id)
                             else:
