@@ -308,6 +308,35 @@ class Music(commands.Cog):
         await interaction.guild.voice_client.disconnect(force=True)
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"MOCBOT has been stopped and has disconnected.", None))
         await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+    
+    @app_commands.command(name="stop", description="Stops any media that is playing.")
+    @app_commands.guilds(MOC_GUILD)
+    async def stop(self, interaction: discord.Interaction):
+        """ Stops the player. """
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+
+        if not interaction.guild.voice_client:
+            # We can't disconnect, if we're not connected.
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"MOCBOT isn't connected to a voice channel.", None))
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+
+        if not interaction.user.voice or (player.is_connected and  interaction.user.voice.channel.id != int(player.channel_id)):
+            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
+            # may not disconnect the bot.
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"You must be in the same channel as MOCBOT to use this command.", None))
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+
+        # Stop the current track so Lavalink consumes less resources.
+        await player.stop()
+
+        if interaction.guild.id in self.players:
+            channel = interaction.guild.get_channel(self.players[interaction.guild.id]["CHANNEL"])
+            message = await channel.fetch_message(self.players[interaction.guild.id]["MESSAGE_ID"])
+            await message.delete()
+            del self.players[interaction.guild.id]
+
+        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"MOCBOT has been stopped.", None))
+        await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
     @app_commands.command(name="filters", description="Toggles audio filters")
     async def filters(self,  interaction: discord.Interaction):
