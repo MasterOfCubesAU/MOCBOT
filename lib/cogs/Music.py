@@ -107,7 +107,7 @@ class Music(commands.Cog):
             if guild_id in self.players:
                 if player.current.stream:
                     await MusicFilters.clear_all(player)
-                await message.edit(embed=self.now_playing_edit(guild, player))
+                await message.edit(embed=await self.now_playing_edit(guild, player))
     
     # Written by Sam https://github.com/sam1357
     async def now_playing_edit(self, guild, player):
