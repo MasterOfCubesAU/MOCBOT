@@ -107,14 +107,18 @@ class Music(commands.Cog):
             if guild_id in self.players:
                 if player.current.stream:
                     await MusicFilters.clear_all(player)
-                embed = self.bot.create_embed("MOCBOT MUSIC", f"> NOW PLAYING: [{player.current.title}]({player.current.uri})", None)
-                embed.add_field(name="Duration",value=await self.formatDuration(player.current.duration) if not player.current.stream else "LIVE STREAM",inline=True)
-                embed.add_field(name="Uploader", value=player.current.author, inline=True)
-                embed.set_image(url=await self.getMediaThumbnail(player.current.source_name, player.current.identifier))
-                embed.add_field(name="\u200b",value="**[LINK TO SOURCE]({})**".format(player.current.uri),inline=False)
-                embed.set_footer(text=f"Requested by {guild.get_member(player.current.requester)}")
-                await message.edit(embed=embed)
+                await message.edit(embed=self.now_playing_edit(guild, player))
     
+    # Written by Sam https://github.com/sam1357
+    async def now_playing_edit(self, guild, player):
+        embed = self.bot.create_embed("MOCBOT MUSIC", f"> {'NOW PLAYING' if not player.paused else 'PAUSED'}: [{player.current.title}]({player.current.uri})", None)
+        embed.add_field(name="Duration",value=await self.formatDuration(player.current.duration) if not player.current.stream else "LIVE STREAM",inline=True)
+        embed.add_field(name="Uploader", value=player.current.author, inline=True)
+        embed.set_image(url=await self.getMediaThumbnail(player.current.source_name, player.current.identifier) if not player.paused else "https://mocbot.masterofcubesau.com/static/media/media_paused.png")
+        embed.add_field(name="\u200b",value="**[LINK TO SOURCE]({})**".format(player.current.uri),inline=False)
+        embed.set_footer(text=f"Requested by {guild.get_member(player.current.requester)}")
+        return embed
+
     async def progress_update(self, event):
         if isinstance(event, lavalink.events.PlayerUpdateEvent):
             if event.position is not None:
@@ -312,6 +316,53 @@ class Music(commands.Cog):
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The filters command requires media to be playing first.", None))
             return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         await interaction.response.send_message(view=FilterDropdownView(player, interaction))
+
+    # Written by Sam https://github.com/sam1357
+    @app_commands.command(name="pause", description="Pauses the music")
+    async def pause(self, interaction: discord.Interaction):
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+
+        if player is None:
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The pause command requires media to be playing first.", None))
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+        if player.paused:
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The music queue is already paused. Use the resume command to resume the music.", None))
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+
+        await player.set_pause(True)
+        guild_id = interaction.guild_id
+        guild = self.bot.get_guild(guild_id)
+        channel = guild.get_channel(self.players[guild_id]["CHANNEL"])
+        message = await channel.fetch_message(self.players[guild_id]["MESSAGE_ID"])
+        logger.info(f"[MUSIC] [{guild} // {guild_id}] Paused {player.current.title} - {player.current.uri}")
+        if guild_id in self.players:
+            await message.edit(embed=await self.now_playing_edit(guild, player))
+        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Media has been paused.", None))
+        await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+
+    # Written by Sam https://github.com/sam1357
+    @app_commands.command(name="resume", description="Resumes the music")
+    async def resume(self, interaction: discord.Interaction):
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+
+        if player is None:
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The resume command requires media to be playing first.", None))
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+        if not player.paused:
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Media is already playing.", None))
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+
+        await player.set_pause(False)
+        guild_id = interaction.guild_id
+        guild = self.bot.get_guild(guild_id)
+        channel = guild.get_channel(self.players[guild_id]["CHANNEL"])
+        message = await channel.fetch_message(self.players[guild_id]["MESSAGE_ID"])
+        logger.info(f"[MUSIC] [{guild} // {guild_id}] Resumed {player.current.title} - {player.current.uri}")
+        if guild_id in self.players:
+            await message.edit(embed=await self.now_playing_edit(guild, player))
+        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Media has been resumed.", None))
+        await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+
 
 async def setup(bot):
     await bot.add_cog(Music(bot))
