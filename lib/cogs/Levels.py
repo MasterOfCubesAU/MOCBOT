@@ -24,8 +24,7 @@ class Levels(commands.Cog):
         self.messages_xp = 4
         self.voice_xp_rate = 48 # per hour
 
-    @commands.Cog.listener()
-    async def on_ready(self):
+    async def cog_load(self):
         logger.info(f"[COG] Loaded {self.__class__.__name__}")
         await self.level_integrity()
         await self.update_roles()

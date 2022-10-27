@@ -327,8 +327,7 @@ class Lobbies(commands.Cog):
         self.bot = bot
         self.lobby_offline_detection.start()
 
-    @commands.Cog.listener()
-    async def on_ready(self):
+    async def cog_load(self):
         logger.info(f"[COG] Loaded {self.__class__.__name__}")
 
     def ensure_lobbies():

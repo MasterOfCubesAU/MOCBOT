@@ -16,8 +16,7 @@ class ErrorHandler(commands.Cog):
         self.bot = bot
         self.bot.tree.on_error = self.on_app_command_error
 
-    @commands.Cog.listener()
-    async def on_ready(self):
+    async def cog_load(self):
         logger.info(f"[COG] Loaded {self.__class__.__name__}")
         
     async def on_app_command_error(self, interaction, error):

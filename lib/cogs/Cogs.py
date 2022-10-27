@@ -24,6 +24,9 @@ class Cogs(commands.Cog):
         else:
             self.disabled_cogs.append("Template")
 
+    async def cog_load(self):
+        logger.info(f"[COG] Loaded {self.__class__.__name__}")
+
     async def fetch_cogs(self):
         for cog in [path.split("\\")[-1][:-3] if os.name == "nt" else path.split("\\")[-1][:-3].split("/")[-1] for path in glob("./lib/cogs/*.py")]:
             if cog != "Cogs" and cog not in self.disabled_cogs:
@@ -67,11 +70,7 @@ class Cogs(commands.Cog):
                     self.unloaded_cogs.append(cog)
             else:
                 await self.load_cog(cog)
-
-    @commands.Cog.listener()
-    async def on_ready(self):
-        logger.info(f"[COG] Loaded {self.__class__.__name__}")
-
+     
     CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.", guild_ids=[231230403053092864, 422983658257907732])
     @CogGroup.command(name="list", description="Lists all cog statuses.")
     async def list(self, interaction: discord.Interaction):
