@@ -16,14 +16,13 @@ class Cogs(commands.Cog):
         self.bot = bot
         self.disabled_cogs = []
         self.unloaded_cogs = []
-        self.loaded_cogs = []
         
-        # if self.bot.is_dev:
-        #     for cog in [path.split("\\")[-1][:-3] if os.name == "nt" else path.split("\\")[-1][:-3].split("/")[-1] for path in glob("./lib/cogs/*.py")]:
-        #         if cog != "Cogs":
-        #             self.disabled_cogs.append(cog)
-        # else:
-        self.disabled_cogs.append("Template")
+        if self.bot.is_dev:
+            for cog in [path.split("\\")[-1][:-3] if os.name == "nt" else path.split("\\")[-1][:-3].split("/")[-1] for path in glob("./lib/cogs/*.py")]:
+                if cog != "Cogs":
+                    self.disabled_cogs.append(cog)
+        else:
+            self.disabled_cogs.append("Template")
 
     async def fetch_cogs(self):
         for cog in [path.split("\\")[-1][:-3] if os.name == "nt" else path.split("\\")[-1][:-3].split("/")[-1] for path in glob("./lib/cogs/*.py")]:
@@ -79,7 +78,7 @@ class Cogs(commands.Cog):
         embed = self.bot.create_embed("MOCBOT SETUP", None, None)
         embed.add_field(name="Enabled", value=">>> {}".format("\n".join([x for x in self.bot.cogs])), inline=True)
         if bool(self.unloaded_cogs + self.disabled_cogs):
-            embed.add_field(name="Disabled", value=">>> {}".format("\n".join(self.unloaded_cogs + self.disabled_cogs)), inline=True)
+            embed.add_field(name="Disabled", value=">>> {}".format("\n".join([cog for cog in self.unloaded_cogs + self.disabled_cogs if cog not in self.bot.cogs])), inline=True)
         embed.add_field(name="\u200b", value=f"You may also use the following command to manage cogs.\n> `/cog [load|unload|reload] [*cogs]`", inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
