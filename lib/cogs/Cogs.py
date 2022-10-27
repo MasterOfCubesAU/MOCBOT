@@ -60,7 +60,7 @@ class Cogs(commands.Cog):
         while self.unloaded_cogs:
             cog = self.unloaded_cogs.pop(0)
             if cog in config["DEPENDENCIES"]:
-                if all([dependency in self.loaded_cogs for dependency in config["DEPENDENCIES"][cog]]):
+                if all([dependency in self.bot.cogs for dependency in config["DEPENDENCIES"][cog]]):
                     await self.load_cog(cog)
                 else:
                     logger.warning(f"[COG] Deferring {cog}")
