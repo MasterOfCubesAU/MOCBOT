@@ -123,7 +123,7 @@ class Cogs(commands.Cog):
     @app_commands.describe(
         cogs="Space separated list of cogs to reload."
     )
-    async def load(self, interaction: discord.Interaction, *, cogs: str):
+    async def reload(self, interaction: discord.Interaction, *, cogs: str):
         failed_cogs = []
         cogs = cogs.split(" ")
         for cog in cogs:
