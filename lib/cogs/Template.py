@@ -12,8 +12,7 @@ class Template(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.Cog.listener()
-    async def on_ready(self):
+    async def cog_load(self):
         logger.info(f"[COG] Loaded {self.__class__.__name__}")
         
 

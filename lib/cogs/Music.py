@@ -33,8 +33,7 @@ class Music(commands.Cog):
         lavalink.add_event_hook(self.next_playing)
         # lavalink.add_event_hook(self.progress_update)
 
-    @commands.Cog.listener()
-    async def on_ready(self):
+    async def cog_load(self):
         logger.info(f"[COG] Loaded {self.__class__.__name__}")
         
     async def cog_unload(self):

@@ -15,8 +15,7 @@ class Status(commands.Cog):
         self.bot = bot
         self.statuschange.start()
 
-    @commands.Cog.listener()
-    async def on_ready(self):
+    async def cog_load(self):
         logger.info(f"[COG] Loaded {self.__class__.__name__}")  
 
     def cog_unload(self):

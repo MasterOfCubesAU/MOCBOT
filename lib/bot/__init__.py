@@ -31,11 +31,11 @@ class MOCBOT(commands.Bot):
         
     async def setup_hook(self):
         self.setup_logger()
+        self.DB = MOC_DB
+        MOC_DB.connect()
         await self.load_cog_manager()
         self.appinfo = await super().application_info()
         self.avatar_url = self.appinfo.icon.url
-        self.DB = MOC_DB
-        MOC_DB.connect()
     
         
     def setup_logger(self):

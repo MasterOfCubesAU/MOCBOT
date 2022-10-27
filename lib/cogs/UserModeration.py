@@ -30,8 +30,7 @@ class UserModeration(commands.Cog):
         self.bot = bot
         #self.other_cog = bot.get_cog("OtherCog")
 
-    @commands.Cog.listener()
-    async def on_ready(self):
+    async def cog_load(self):
         logger.info(f"[COG] Loaded {self.__class__.__name__}")
         
 
