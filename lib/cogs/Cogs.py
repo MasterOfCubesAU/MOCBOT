@@ -76,7 +76,7 @@ class Cogs(commands.Cog):
     async def list(self, interaction: discord.Interaction):
         embed = self.bot.create_embed("MOCBOT SETUP", None, None)
         embed.add_field(name="Enabled", value=">>> {}".format("\n".join([x for x in self.bot.cogs])), inline=True)
-        if bool(self.unloaded_cogs + self.disabled_cogs):
+        if bool([cog for cog in self.unloaded_cogs + self.disabled_cogs if cog not in self.bot.cogs]):
             embed.add_field(name="Disabled", value=">>> {}".format("\n".join([cog for cog in self.unloaded_cogs + self.disabled_cogs if cog not in self.bot.cogs])), inline=True)
         embed.add_field(name="\u200b", value=f"You may also use the following command to manage cogs.\n> `/cog [load|unload|reload] [*cogs]`", inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)
