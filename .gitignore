@@ -2,4 +2,4 @@ __pycache__
 
 .MOCBOT
 config.yml
-latest.log
+logs/*

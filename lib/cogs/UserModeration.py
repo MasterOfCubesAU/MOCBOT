@@ -1,10 +1,12 @@
 from discord.ext import commands
 from discord.ui import Button, View
 from discord import app_commands
-from lib.bot import config, logger, MOCBOT, DEV_GUILD, MOC_DB
+from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
 from typing import Literal, Union, Optional
+import logging
 import discord
 import uuid
+
 
 class ConfirmButtons(View):
     def __init__(self, *, timeout=10):
@@ -28,10 +30,10 @@ class UserModeration(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        #self.other_cog = bot.get_cog("OtherCog")
+        self.logger = logging.getLogger(__name__)
 
     async def cog_load(self):
-        logger.info(f"[COG] Loaded {self.__class__.__name__}")
+        self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
         
 
     @app_commands.command(name="kick", description="Kicks specified user.")

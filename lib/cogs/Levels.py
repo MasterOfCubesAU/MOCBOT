@@ -1,9 +1,10 @@
 from discord.ext import commands, tasks
 from discord.ui import Button, View
 from discord import app_commands, File, Object, Status
-from lib.bot import config, logger, MOCBOT, DEV_GUILD, MOC_DB
+from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
 from typing import Literal, Union, Optional
 import discord
+import logging
 
 from PIL import Image, ImageDraw, ImageFont
 import requests
@@ -23,9 +24,10 @@ class Levels(commands.Cog):
         self.global_multiplier = 1
         self.messages_xp = 4
         self.voice_xp_rate = 48 # per hour
+        self.logger = logging.getLogger(__name__)
 
     async def cog_load(self):
-        logger.info(f"[COG] Loaded {self.__class__.__name__}")
+        self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
         await self.level_integrity()
         await self.update_roles()
         self.voice_xp.start()
