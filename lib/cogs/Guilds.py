@@ -1,19 +1,21 @@
 from discord.ext import commands
 from discord.ui import Button, View
 from discord import app_commands
-from lib.bot import config, logger, MOCBOT, DEV_GUILD, MOC_DB
+from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
 from typing import Literal, Union, Optional
-import discord
 
+import discord
+import logging
 
 
 class Guilds(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.logger = logging.getLogger(__name__)
 
     async def cog_load(self):
-        logger.info(f"[COG] Loaded {self.__class__.__name__}")
+        self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
         
     @commands.Cog.listener()
     async def on_guild_join(self, guild):

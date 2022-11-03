@@ -1,9 +1,10 @@
 from email.policy import default
 from discord.ext import commands
 from discord import app_commands
-from lib.bot import config, logger, MOCBOT, DEV_GUILD, MOC_DB, MOC_GUILD
+from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB, MOC_GUILD
 from typing import Literal, Union, Optional
 import discord
+import logging
 
 from utils.Lavalink import LavalinkVoiceClient
 from utils.MusicFilters import FilterDropdownView, MusicFilters
@@ -24,6 +25,7 @@ class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.players = {}
+        self.logger = logging.getLogger(__name__)
 
         if not hasattr(bot, 'lavalink'):  # This ensures the client isn't overwritten during cog reloads.
             bot.lavalink = lavalink.Client(bot.user.id)
@@ -34,7 +36,7 @@ class Music(commands.Cog):
         # lavalink.add_event_hook(self.progress_update)
 
     async def cog_load(self):
-        logger.info(f"[COG] Loaded {self.__class__.__name__}")
+        self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
         
     async def cog_unload(self):
         """ Cog unload handler. This removes any event hooks that were registered. """
@@ -102,7 +104,7 @@ class Music(commands.Cog):
             guild = self.bot.get_guild(guild_id)
             channel = guild.get_channel(self.players[guild_id]["CHANNEL"])
             message = await channel.fetch_message(self.players[guild_id]["MESSAGE_ID"])
-            logger.info(f"[MUSIC] [{guild} // {guild_id}] Playing {player.current.title} - {player.current.uri}")
+            self.logger.info(f"[MUSIC] [{guild} // {guild_id}] Playing {player.current.title} - {player.current.uri}")
             if guild_id in self.players:
                 if player.current.stream:
                     await MusicFilters.clear_all(player)
@@ -183,11 +185,11 @@ class Music(commands.Cog):
             for track in tracks:
                 # Add all of the tracks from the playlist to the queue.
                 player.add(requester=interaction.user.id, track=track)
-                logger.info(f"[MUSIC] [{interaction.guild} // {interaction.guild.id}] Queued {track.title} - {track.uri}")
+                self.logger.info(f"[MUSIC] [{interaction.guild} // {interaction.guild.id}] Queued {track.title} - {track.uri}")
         else:
             track = results.tracks[0]
             player.add(requester=interaction.user.id, track=track)
-            logger.info(f"[MUSIC] [{interaction.guild} // {interaction.guild.id}] Queued {track.title} - {track.uri}")
+            self.logger.info(f"[MUSIC] [{interaction.guild} // {interaction.guild.id}] Queued {track.title} - {track.uri}")
         
         if player.current is not None:
             embed = self.bot.create_embed("MOCBOT MUSIC", f"> ADDED TO QUEUE: [{player.queue[-1].title}]({player.queue[-1].uri})", None)
@@ -333,7 +335,7 @@ class Music(commands.Cog):
         guild = self.bot.get_guild(guild_id)
         channel = guild.get_channel(self.players[guild_id]["CHANNEL"])
         message = await channel.fetch_message(self.players[guild_id]["MESSAGE_ID"])
-        logger.info(f"[MUSIC] [{guild} // {guild_id}] Paused {player.current.title} - {player.current.uri}")
+        self.logger.info(f"[MUSIC] [{guild} // {guild_id}] Paused {player.current.title} - {player.current.uri}")
         if guild_id in self.players:
             await message.edit(embed=await self.now_playing_edit(guild, player))
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Media has been paused.", None))
@@ -356,7 +358,7 @@ class Music(commands.Cog):
         guild = self.bot.get_guild(guild_id)
         channel = guild.get_channel(self.players[guild_id]["CHANNEL"])
         message = await channel.fetch_message(self.players[guild_id]["MESSAGE_ID"])
-        logger.info(f"[MUSIC] [{guild} // {guild_id}] Resumed {player.current.title} - {player.current.uri}")
+        self.logger.info(f"[MUSIC] [{guild} // {guild_id}] Resumed {player.current.title} - {player.current.uri}")
         if guild_id in self.players:
             await message.edit(embed=await self.now_playing_edit(guild, player))
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Media has been resumed.", None))

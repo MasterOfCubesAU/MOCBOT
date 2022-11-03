@@ -1,9 +1,10 @@
 from discord.ext import commands
 from discord.ui import Button, View
 from discord import app_commands
-from lib.bot import config, logger, MOCBOT, DEV_GUILD, MOC_DB
+from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
 from typing import Literal, Union, Optional
 import discord
+import logging
 
 from glob import glob
 import os
@@ -16,6 +17,7 @@ class Cogs(commands.Cog):
         self.bot = bot
         self.disabled_cogs = []
         self.unloaded_cogs = []
+        self.logger = logging.getLogger(__name__)
         
         if self.bot.is_dev:
             for cog in [path.split("\\")[-1][:-3] if os.name == "nt" else path.split("\\")[-1][:-3].split("/")[-1] for path in glob("./lib/cogs/*.py")]:
@@ -25,7 +27,7 @@ class Cogs(commands.Cog):
             self.disabled_cogs.append("Template")
 
     async def cog_load(self):
-        logger.info(f"[COG] Loaded {self.__class__.__name__}")
+        self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
 
     async def fetch_cogs(self):
         for cog in [path.split("\\")[-1][:-3] if os.name == "nt" else path.split("\\")[-1][:-3].split("/")[-1] for path in glob("./lib/cogs/*.py")]:
@@ -36,7 +38,7 @@ class Cogs(commands.Cog):
         try:
             await self.bot.load_extension(f"lib.cogs.{cog}")
         except Exception as e:
-            logger.error(f"[COG] {cog} failed to load. {e}")
+            self.logger.error(f"[COG] {cog} failed to load. {e}")
             traceback.print_exc()
             raise e
 
@@ -44,7 +46,7 @@ class Cogs(commands.Cog):
         try:
             await self.bot.unload_extension(f"lib.cogs.{cog}")
         except Exception as e:
-            logger.error(f"[COG] {cog} failed to unload. {e}")
+            self.logger.error(f"[COG] {cog} failed to unload. {e}")
             traceback.print_exc()
             raise e
 
@@ -53,7 +55,7 @@ class Cogs(commands.Cog):
             await self.bot.unload_extension(f"lib.cogs.{cog}")
             await self.bot.load_extension(f"lib.cogs.{cog}")
         except Exception as e:
-            logger.error(f"[COG] {cog} failed to reload. {e}")
+            self.logger.error(f"[COG] {cog} failed to reload. {e}")
             traceback.print_exc()
             raise e
 
@@ -66,7 +68,7 @@ class Cogs(commands.Cog):
                 if all([dependency in self.bot.cogs for dependency in config["DEPENDENCIES"][cog]]):
                     await self.load_cog(cog)
                 else:
-                    logger.warning(f"[COG] Deferring {cog}")
+                    self.logger.warning(f"[COG] Deferring {cog}")
                     self.unloaded_cogs.append(cog)
             else:
                 await self.load_cog(cog)
