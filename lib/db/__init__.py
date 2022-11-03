@@ -1,29 +1,28 @@
 import mysql.connector as mysql
 from mysql.connector import errorcode
-from ..bot import logger
 import yaml
-
+import logging
 
 with open("./config.yml", "r") as f:
     config = yaml.safe_load(f)
 
 class MOC_DB:
     def __init__(self) -> None:
-        pass
+        self.logger = logging.getLogger(__name__)
 
     def connect(self):
         try:
             self.connection = mysql.connect(user=config["DATABASE"]["USER"], password=config["DATABASE"]["PASS"], host=config["DATABASE"]["HOST"], database=config["DATABASE"]["DB_NAME"], autocommit=True)
         except mysql.Error as err:
             if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-                logger.error("[DB] Database credentials incorrect.")
+                self.logger.error("[DB] Database credentials incorrect.")
             elif err.errno == errorcode.ER_BAD_DB_ERROR:
-                logger.error("[DB] Database does not exist.")
+                self.logger.error("[DB] Database does not exist.")
             else:
-                logger.error(f"[DB] {err}")
+                self.logger.error(f"[DB] {err}")
         else:
             self.cursor = self.connection.cursor(buffered=True)
-            logger.info("[DB] Connection established.")
+            self.logger.info("[DB] Connection established.")
 
     def execute(self, command, *values):
         self.cursor.execute(command, tuple(values))

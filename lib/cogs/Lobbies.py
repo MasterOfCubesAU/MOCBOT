@@ -1,9 +1,10 @@
 from discord.ext import commands, tasks
 from discord.ui import Button, View, Modal, TextInput, Select
 from discord import app_commands, Interaction, NotFound, PermissionOverwrite, Object, Status
-from lib.bot import config, logger, MOCBOT, DEV_GUILD, MOC_DB
+from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
 from typing import Literal, Union, Optional
 import discord
+import logging
 import asyncio
 
 from random import randint
@@ -312,6 +313,7 @@ class LobbyRename(Modal, title='Rename Lobby'):
 
     def __init__(self, LobbyPrompt) -> None:
         self.LobbyPrompt = LobbyPrompt
+        self.logger = logging.getLogger(__name__)
         super().__init__()
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -326,9 +328,11 @@ class Lobbies(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.lobby_offline_detection.start()
+        self.logger = logging.getLogger(__name__)
+
 
     async def cog_load(self):
-        logger.info(f"[COG] Loaded {self.__class__.__name__}")
+        self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
 
     def ensure_lobbies():
         def predicate(interaction: discord.Interaction) -> bool:

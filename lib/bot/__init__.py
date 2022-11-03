@@ -1,60 +1,48 @@
+import asyncio
 from discord.ext import commands
 from discord import app_commands
+from lib.db import MOC_DB
 import logging.config
-import requests
 import logging
 import discord
 import yaml
-import sys
 import os
 
-
-
-
-logger = logging.getLogger(__name__)
 with open("./config.yml", "r") as f:
     config = yaml.safe_load(f)
 
 DEV_GUILD = discord.Object(id=config["GUILD_IDS"]["DEV"])
 MOC_GUILD = discord.Object(id=config["GUILD_IDS"]["MOC"])
 
-from lib.db import MOC_DB
-MOC_DB = MOC_DB()
-
 class MOCBOT(commands.Bot):
 
     def __init__(self, is_dev):
-        super().__init__(command_prefix="!", owner_id=169402073404669952, intents=discord.Intents.all(), application_id=(config["APPLICATION_IDS"]["DEVELOPMENT"] if is_dev else config["APPLICATION_IDS"]["PRODUCTION"]))
+        super().__init__(command_prefix="!", owner_id=169402073404669952, intents=discord.Intents.all())
         self.is_dev = is_dev
         self.mode = "DEVELOPMENT" if is_dev else "PRODUCTION"
-        
-        
+   
     async def setup_hook(self):
         self.setup_logger()
-        self.DB = MOC_DB
+        global MOC_DB
+        MOC_DB = MOC_DB()
         MOC_DB.connect()
         await self.load_cog_manager()
         self.appinfo = await super().application_info()
         self.avatar_url = self.appinfo.icon.url
     
-        
     def setup_logger(self):
         logging.config.dictConfig(config["LOGGING"])
-        formatter = logging.Formatter("%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d - %H:%M:%S") 
-        ch = logging.StreamHandler(sys.stdout)
-        ch.setLevel(logging.INFO)
-        ch.setFormatter(formatter)
-        logger.addHandler(ch)
-
-    # async def load_cogs(self):
-    #     for cog in [path.split("\\")[-1][:-3] if os.name == "nt" else path.split("\\")[-1][:-3].split("/")[-1] for path in glob("./lib/cogs/*.py")]:
-    #         await self.load_extension(f"lib.cogs.{cog}")
+        self.logger = logging.getLogger(__name__)
+        for handler in logging.getLogger().handlers:
+            if handler.name == "file" and os.path.isfile('logs/latest.log'):
+                handler.doRollover()
+        logging.getLogger('discord').setLevel(logging.DEBUG)
 
     async def load_cog_manager(self):
         await self.load_extension("lib.cogs.Cogs")
 
     def run(self):
-        super().run(config["TOKENS"][self.mode])
+        super().run(config["TOKENS"][self.mode], log_handler=None)
 
 
     def create_embed(self, title, description, colour):
@@ -79,13 +67,12 @@ class MOCBOT(commands.Bot):
     async def on_ready(self):
         self.appinfo = await super().application_info()
         self.avatar_url = self.appinfo.icon.url
-        # os.system("cls" if os.name == "nt" else "clear")
-        logger.info(
+        self.logger.info(
             f"Connected on {self.user.name} ({self.mode}) | d.py v{str(discord.__version__)}"
         )
 
     async def on_interaction(self, interaction):
-        logger.info(f"[COMMAND] [{interaction.guild} // {interaction.guild.id}] {interaction.user} ({interaction.user.id}) used command {interaction.command.name}")
+        self.logger.info(f"[COMMAND] [{interaction.guild} // {interaction.guild.id}] {interaction.user} ({interaction.user.id}) used command {interaction.command.name}")
 
     async def on_message(self, message):
         await self.wait_until_ready()
