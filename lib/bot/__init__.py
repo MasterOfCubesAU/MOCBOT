@@ -16,13 +16,14 @@ MOC_GUILD = discord.Object(id=config["GUILD_IDS"]["MOC"])
 class MOCBOT(commands.Bot):
 
     def __init__(self, is_dev):
-        super().__init__(command_prefix="!", owner_id=169402073404669952, intents=discord.Intents.all(), application_id=(config["APPLICATION_IDS"]["DEVELOPMENT"] if is_dev else config["APPLICATION_IDS"]["PRODUCTION"]))
+        super().__init__(command_prefix="!", owner_id=169402073404669952, intents=discord.Intents.all())
         self.is_dev = is_dev
         self.mode = "DEVELOPMENT" if is_dev else "PRODUCTION"
    
     async def setup_hook(self):
         self.setup_logger()
-        self.DB = MOC_DB().connect()
+        global MOC_DB
+        MOC_DB = MOC_DB().connect()
         await self.load_cog_manager()
         self.appinfo = await super().application_info()
         self.avatar_url = self.appinfo.icon.url
