@@ -1,3 +1,4 @@
+import asyncio
 from discord.ext import commands
 from discord import app_commands
 from lib.db import MOC_DB
@@ -23,7 +24,8 @@ class MOCBOT(commands.Bot):
     async def setup_hook(self):
         self.setup_logger()
         global MOC_DB
-        MOC_DB = MOC_DB().connect()
+        MOC_DB = MOC_DB()
+        MOC_DB.connect()
         await self.load_cog_manager()
         self.appinfo = await super().application_info()
         self.avatar_url = self.appinfo.icon.url
