@@ -5,7 +5,7 @@ GUILD_IDS:
   DEV: null
   MOC: null
 
-// ======= API/SERVER CONNECTIONS =========
+# ======= API/SERVER CONNECTIONS =========
 DATABASE:
   HOST: 127.0.0.1
   USER: null
@@ -22,7 +22,7 @@ SPOTIFY:
   SECRET: null
  
  
-// ======= LOGGING =========
+# ======= LOGGING =========
 
 LOGGING:  {
     "version": 1,
