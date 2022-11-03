@@ -4,6 +4,12 @@ DEPENDENCIES: {}
 GUILD_IDS:
   DEV: null
   MOC: null
+  
+ # ======= TOKENS =========
+
+TOKENS:
+    PRODUCTTON: null
+    DEVELOPMENT: null
 
 # ======= API/SERVER CONNECTIONS =========
 DATABASE:
