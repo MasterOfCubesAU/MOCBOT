@@ -1,12 +1,17 @@
 from discord.ext import commands
 from discord.ui import Button, View
-from discord import app_commands
+from discord import app_commands, utils
 from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
 from typing import Literal, Union, Optional
+from datetime import datetime
 import logging
 import discord
 import uuid
+import re
+import asyncio
 
+timeRegex = re.compile("(?:(\d{1,5})(h|s|m|d))+?")
+timeDict = {"h":3600, "s":1, "m":60, "d":86400}
 
 class ConfirmButtons(View):
     def __init__(self, *, timeout=10):
@@ -23,14 +28,24 @@ class ConfirmButtons(View):
         self.confirmed = True
         self.clear_items()
         await interaction.response.edit_message(view=self)
-        self.stop()
-        
+        self.stop()     
 
 class UserModeration(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
         self.logger = logging.getLogger(__name__)
+
+    async def convert(self, interaction, arguments):
+        args = arguments.lower()
+        matches = re.findall(timeRegex, args)
+        time = 0
+        for value, key in matches:
+            try:
+                time += timeDict[key] * float(value)
+            except:
+                pass
+        return time
 
     async def cog_load(self):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
@@ -110,8 +125,29 @@ class UserModeration(commands.Cog):
         await user.send(embed=self.bot.create_embed("MOCBOT WARNINGS", f"You have been warned in **{interaction.guild}** by {interaction.user.mention} for **{reason}**. Please refer to your MOCBOT account to view your warnings.", None), view=view)
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT WARNINGS", f"{user.mention} has successfully been warned for **{reason}**.", None), ephemeral=True)
 
+    @app_commands.command(name="mute", description="Mutes the specified user in voice channels.")
+    @app_commands.guilds(DEV_GUILD)
+    @app_commands.checks.has_permissions(mute_members=True)
+    @app_commands.describe(
+        member="The member you would like to mute.",
+        reason="The reason for muting this user.",
+        time="How long to mute the user for. E.g. 10s, 5m, 3h, 1d"
+    )
+    async def mute(self, interaction: discord.Interaction, member: discord.Member, reason: str, time: str):
+        convertedTime = await self.convert(interaction, time)
+        if convertedTime == 0:
+            return await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MODERATION", f"The specified time is invalid. Examples: `10s` | `5m` | `4h` | `1d`.", None), ephemeral=True)
+        currentTime = utils.utcnow().timestamp()
+        finishTime = round(currentTime + convertedTime)
+        await member.edit(mute=True)
+        try:
+            await member.send(embed=self.bot.create_embed("MOCBOT MODERATION", f'You have been voice muted in the **{interaction.guild.name}** server.\n {f"REASON: {reason}" if reason else "No reason was specified."} \n\nTime at which you will be unmuted: <t:{finishTime}:R>', None))
+        except Exception:
+            pass
 
-    
+        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MODERATION", f'**{member.mention}** has been voice muted in the **{interaction.guild.name}** server.\n {f"REASON: {reason}" if reason else "No reason was specified."} \n\nTime at which you will be unmuted: <t:{finishTime}:R>', None), ephemeral=True)
+        await asyncio.sleep(convertedTime)
+        await member.edit(mute=False)
 
 async def setup(bot):
     await bot.add_cog(UserModeration(bot))
