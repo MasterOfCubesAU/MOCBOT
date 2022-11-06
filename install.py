@@ -21,6 +21,8 @@ def main():
             os.system("sudo apt install python3.10-venv")
         os.system(f"python3.10 -m venv {VENV_PATH}")
     os.system(f"{os.path.join(getBinPath(), 'pip')} install -r requirements.txt")
+    if not os.path.exists("logs"):
+        os.mkdir("logs")
     print("==================================================================================================")
     print(fr"All dependencies have been installed/updated. To launch MOCBOT, execute {os.path.join(getBinPath(), 'python')} launcher.py")
     print("==================================================================================================")
