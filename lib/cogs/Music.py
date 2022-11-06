@@ -1,4 +1,3 @@
-from email.policy import default
 from discord.ext import commands
 from discord import app_commands
 from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB, MOC_GUILD
@@ -271,7 +270,6 @@ class Music(commands.Cog):
         await self.delay_delete(interaction, 5)
    
     @app_commands.command(name="loop", description="Loop the current media or queue.")
-    @app_commands.guilds(DEV_GUILD)
     async def loop(self, interaction: discord.Interaction, type: Literal["Off", "Song", "Queue"]):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         if player is None:
