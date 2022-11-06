@@ -11,14 +11,6 @@ Manage MOCBOT configuration through the [MOCBOT Website](https://mocbot.masterof
 
 
 
-## Usage
-
-Invite MOCBOT into your Discord server [here](https://discord.com/api/oauth2/authorize?client_id=417962459811414027&permissions=8&scope=bot%20applications.commands).
-
-Type `/` in your Discord server to see available commands. Alternatively, you may view all commands [here](https://mocbot.masterofcubesau.com/commands)
-
-
-
 ## Authors
 
 - [@MasterOfCubesAU](https://www.github.com/MasterOfCubesAU)
@@ -36,6 +28,30 @@ Type `/` in your Discord server to see available commands. Alternatively, you ma
 - Bot Logging (To be ported)
 - User Verification (To be ported)
 - Support Tickets (To be ported)
+
+
+## Usage
+
+Invite MOCBOT into your Discord server [here](https://discord.com/api/oauth2/authorize?client_id=417962459811414027&permissions=8&scope=bot%20applications.commands).
+
+Type `/` in your Discord server to see available commands. Alternatively, you may view all commands [here](https://mocbot.masterofcubesau.com/commands)
+
+
+
+## Deployment
+
+Ensure you have installed the following:
+
+- [Python 3.10](https://www.python.org/downloads/release/python-3108/)
+
+To deploy this project run
+
+```bash
+  python3.10 install.py
+
+  # To view help:
+  python3.10 install.py -h
+```
 
 
 ## Branches
