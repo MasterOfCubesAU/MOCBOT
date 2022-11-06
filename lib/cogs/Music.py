@@ -371,7 +371,6 @@ class Music(commands.Cog):
         await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
     @app_commands.command(name="shuffle", description="Shuffles the queue")
-    @app_commands.guilds(DEV_GUILD)
     async def shuffle(self, interaction: discord.Interaction):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
 
