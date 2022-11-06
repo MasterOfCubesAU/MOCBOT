@@ -15,6 +15,7 @@ import functools
 import asyncio
 import typing
 import datetime
+import random
 from functools import reduce
 import requests
 
@@ -364,6 +365,19 @@ class Music(commands.Cog):
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Media has been resumed.", None))
         await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
+    @app_commands.command(name="shuffle", description="Shuffles the queue")
+    @app_commands.guilds(DEV_GUILD)
+    async def shuffle(self, interaction: discord.Interaction):
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+
+        if player is None:
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The shuffle command requires media to be playing first.", None))
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+
+        random.shuffle(player.queue)
+
+        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Queue has successfully been shuffled.", None))
+        await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
 async def setup(bot):
     await bot.add_cog(Music(bot))
