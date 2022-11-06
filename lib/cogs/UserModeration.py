@@ -141,11 +141,11 @@ class UserModeration(commands.Cog):
         finishTime = round(currentTime + convertedTime)
         await member.edit(mute=True)
         try:
-            await member.send(embed=self.bot.create_embed("MOCBOT MODERATION", f'You have been voice muted in the **{interaction.guild.name}** server.\n {f"REASON: {reason}" if reason else "No reason was specified."} \n\nTime at which you will be unmuted: <t:{finishTime}:R>', None))
+            await member.send(embed=self.bot.create_embed("MOCBOT MODERATION", f'You have been muted in the **{interaction.guild.name}** server for **{reason}**. You will automatically be unmuted <t:{finishTime}:R>', None))
         except Exception:
             pass
 
-        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MODERATION", f'**{member.mention}** has been voice muted in the **{interaction.guild.name}** server.\n {f"REASON: {reason}" if reason else "No reason was specified."} \n\nTime at which you will be unmuted: <t:{finishTime}:R>', None), ephemeral=True)
+        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MODERATION", f'**{member.mention}** has been muted in the **{interaction.guild.name}** server for **{reason}**. The user will automatically be unmuted <t:{finishTime}:R>', None), ephemeral=True)
         await asyncio.sleep(convertedTime)
         await member.edit(mute=False)
 
