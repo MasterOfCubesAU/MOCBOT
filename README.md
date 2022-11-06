@@ -48,9 +48,11 @@ To deploy this project run
 
 ```bash
   python3.10 install.py
-
-  # To view help:
-  python3.10 install.py -h
+  
+  # Windows
+  .MOCBOT\Scripts\python launcher.py
+  # Unix
+  .MOCBOT/bin/python launcher.py
 ```
 
 
