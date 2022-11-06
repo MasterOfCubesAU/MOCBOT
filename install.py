@@ -17,6 +17,8 @@ def main():
         if args.clean:
             return
     if not os.path.exists(VENV_PATH):
+        if os.name == "posix":
+            os.system("sudo apt install python3.10-venv")
         os.system(f"python3.10 -m venv {VENV_PATH}")
     os.system(f"{os.path.join(getBinPath(), 'pip')} install -r requirements.txt")
     print("==================================================================================================")
