@@ -323,7 +323,6 @@ class Music(commands.Cog):
         await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
     
     @app_commands.command(name="stop", description="Stops any media that is playing.")
-    @app_commands.guilds(MOC_GUILD)
     async def stop(self, interaction: discord.Interaction):
         """ Stops the player. """
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
