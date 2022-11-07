@@ -90,12 +90,13 @@ class Music(commands.Cog):
             # To save on resources, we can tell the bot to disconnect from the voice channel.
             guild_id = event.player.guild_id
             guild = self.bot.get_guild(guild_id)
-            channel = guild.get_channel(self.players[guild_id]["CHANNEL"])
-            message = await channel.fetch_message(self.players[guild_id]["MESSAGE_ID"])
+            if guild_id in self.players:
+                channel = guild.get_channel(self.players[guild_id]["CHANNEL"])
+                message = await channel.fetch_message(self.players[guild_id]["MESSAGE_ID"])
 
-            await guild.voice_client.disconnect(force=True)
-            await message.delete()
-            del self.players[guild_id]
+                await guild.voice_client.disconnect(force=True)
+                await message.delete()
+                del self.players[guild_id]
     
     async def next_playing(self, event):
         if isinstance(event, lavalink.events.TrackStartEvent):
@@ -235,7 +236,7 @@ class Music(commands.Cog):
     )
     async def skip(self, interaction: discord.Interaction, position: typing.Optional[int] = 1):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
-        if player is None:
+        if player is None or player.current is None:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The skip command requires media to be playing first.", None))
             return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         if position < 1 or position > len(player.queue):
@@ -257,7 +258,7 @@ class Music(commands.Cog):
     )
     async def seek(self, interaction: discord.Interaction, time: int):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
-        if player is None:
+        if player is None or player.current is None:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The seek command requires media to be playing first.", None))
             return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         if not player.current.is_seekable:
@@ -273,7 +274,7 @@ class Music(commands.Cog):
     @app_commands.command(name="loop", description="Loop the current media or queue.")
     async def loop(self, interaction: discord.Interaction, type: Literal["Off", "Song", "Queue"]):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
-        if player is None:
+        if player is None or player.current is None:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The loop command requires media to be playing first.", None))
             return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         match type:
@@ -338,8 +339,9 @@ class Music(commands.Cog):
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"You must be in the same channel as MOCBOT to use this command.", None))
             return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
-        # Stop the current track so Lavalink consumes less resources.
+        player.queue.clear()
         await player.stop()
+        # await self.bot.lavalink.player_manager.destroy(interaction.channel.guild.id)
 
         if interaction.guild.id in self.players:
             channel = interaction.guild.get_channel(self.players[interaction.guild.id]["CHANNEL"])
@@ -353,7 +355,7 @@ class Music(commands.Cog):
     @app_commands.command(name="filters", description="Toggles audio filters")
     async def filters(self,  interaction: discord.Interaction):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
-        if player is None:
+        if player is None or player.current is None:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The filters command requires media to be playing first.", None))
             return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         await interaction.response.send_message(view=FilterDropdownView(player, interaction))
@@ -363,7 +365,7 @@ class Music(commands.Cog):
     async def pause(self, interaction: discord.Interaction):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
 
-        if player is None:
+        if player is None or player.current is None:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The pause command requires media to be playing first.", None))
             return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         if player.paused:
@@ -383,7 +385,7 @@ class Music(commands.Cog):
     async def resume(self, interaction: discord.Interaction):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
 
-        if player is None:
+        if player is None or player.current is None:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The resume command requires media to be playing first.", None))
             return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         if not player.paused:
@@ -402,7 +404,7 @@ class Music(commands.Cog):
     async def shuffle(self, interaction: discord.Interaction):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
 
-        if player is None:
+        if player is None or player.current is None:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The shuffle command requires media to be playing first.", None))
             return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
