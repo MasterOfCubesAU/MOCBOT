@@ -1,4 +1,4 @@
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.ui import Button, View
 from discord import app_commands, utils
 from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
@@ -35,6 +35,7 @@ class UserModeration(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.logger = logging.getLogger(__name__)
+        self.punishments = {}
 
     async def convert(self, interaction, arguments):
         args = arguments.lower()
@@ -137,17 +138,25 @@ class UserModeration(commands.Cog):
         convertedTime = await self.convert(interaction, time)
         if convertedTime == 0:
             return await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MODERATION", f"The specified time is invalid. Examples: `10s` | `5m` | `4h` | `1d`.", None), ephemeral=True)
-        currentTime = utils.utcnow().timestamp()
-        finishTime = round(currentTime + convertedTime)
+        currentTime = utils.utcnow()
+        finishTime = currentTime + timedelta(seconds=convertedTime)
+        punishmentId = str(uuid.uuid4())
+        MOC_DB.execute("INSERT INTO Punishments (PunishmentID, UserID, GuildID, Reason, Time, AdminID) VALUES (%s, %s, %s, %s, %s, %s)", punishmentId, member.id, interaction.guild.id, reason, finishTime.isoformat(), interaction.user.id)
+        self.punishments[punishmentId] = finishTime
         await member.edit(mute=True)
         try:
-            await member.send(embed=self.bot.create_embed("MOCBOT MODERATION", f'You have been muted in the **{interaction.guild.name}** server for **{reason}**. You will automatically be unmuted <t:{finishTime}:R>', None))
+            await member.send(embed=self.bot.create_embed("MOCBOT MODERATION", f'You have been muted in the **{interaction.guild.name}** server for **{reason}**. The user will automatically be unmuted <t:{round(finishTime.timestamp())}:R>', None), ephemeral=True)
         except Exception:
             pass
+        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MODERATION", f'**{member.mention}** has been muted in the **{interaction.guild.name}** server for **{reason}**. The user will automatically be unmuted <t:{round(finishTime.timestamp())}:R>', None), ephemeral=True)
 
-        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MODERATION", f'**{member.mention}** has been muted in the **{interaction.guild.name}** server for **{reason}**. The user will automatically be unmuted <t:{finishTime}:R>', None), ephemeral=True)
-        await asyncio.sleep(convertedTime)
-        await member.edit(mute=False)
+    @tasks.loop(seconds=1.0)
+    async def checkUnmute(self):
+        for punishmentId in self.punishments:
+            if self.punishments[punishmentId] == utils.utcnow():
+                punishmentDetails = MOC_DB.record("SELECT * FROM Punishments WHERE PunishmentID = %s", punishmentId)
+                print(punishmentDetails)
 
+        
 async def setup(bot):
     await bot.add_cog(UserModeration(bot))
