@@ -167,13 +167,10 @@ class UserModeration(commands.Cog):
                     member = guild.get_member(punishmentRes[1])
                     await member.edit(mute=False)
                     MOC_DB.execute("DELETE FROM Punishments WHERE PunishmentID = %s", punishmentId)
-                    self.punishments.pop(punishmentId)
+                    await self.updatePunishmentDict()
 
     async def updatePunishmentDict(self):
-        punishmentRes = MOC_DB.records("SELECT * FROM Punishments")
-        for punishment in punishmentRes:
-            self.punishments.clear()
-            self.punishments[punishment[0]] = timezone('UTC').localize(punishment[4])
+        self.punishments = {punishment[0]: timezone('UTC').localize(punishment[4]) for punishment in MOC_DB.records("SELECT * FROM Punishments")}
         
 async def setup(bot):
     await bot.add_cog(UserModeration(bot))
