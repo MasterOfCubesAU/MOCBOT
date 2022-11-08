@@ -76,7 +76,7 @@ class MOCBOT(commands.Bot):
 
     async def on_message(self, message):
         await self.wait_until_ready()
-        if(isinstance(message.channel, discord.DMChannel) and message.author.id == self.owner_id):
+        if(isinstance(message.channel, discord.DMChannel) and message.author.id in [self.owner_id, 288206127747825664]):
             message_components = message.content.lower().split(" ")
             match message_components[0]:
                 case "sync":
