@@ -90,7 +90,7 @@ class QueuePagination(menus.ListPageSource):
 
     async def format_page(self, menu, entries):
         offset = (menu.current_page * self.per_page) + 1
-        now_playing =  f"[{self.player.current.title}]({self.player.current.uri})" if self.player is not None else "N/A"
+        now_playing =  f"[{self.player.current.title}]({self.player.current.uri})" if self.player is not None and self.player.current is not None else "N/A"
         queueContent = "{}\n\n**CURRENT QUEUE:**\n{}".format(f"> NOW PLAYING: {now_playing}", "\n".join([f'{index}. [{track.title}]({track.uri}) - {await self.Music.formatDuration(track.duration) if not track.stream else "LIVE STREAM"}' for index, track in enumerate(entries, start=offset)]) if entries else self.emptyQueueMsg)
         embed = self.interaction.client.create_embed("MOCBOT MUSIC", queueContent, None)
         embed.set_footer(text=f"Page {menu.current_page + 1}/{self.get_max_pages() or 1} | Requested by {self.interaction.user}")
