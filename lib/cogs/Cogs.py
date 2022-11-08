@@ -21,7 +21,7 @@ class Cogs(commands.Cog):
         
         if self.bot.is_dev:
             for cog in [path.split("\\")[-1][:-3] if os.name == "nt" else path.split("\\")[-1][:-3].split("/")[-1] for path in glob("./lib/cogs/*.py")]:
-                if cog != "Cogs":
+                if cog not in ["Cogs", "ErrorHandler"]:
                     self.disabled_cogs.append(cog)
         else:
             self.disabled_cogs.append("Template")
