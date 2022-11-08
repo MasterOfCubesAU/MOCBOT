@@ -29,7 +29,7 @@ class Status(commands.Cog):
     @statuschange.before_loop
     async def before_statuschange(self):
         await self.bot.wait_until_ready()
-        self.statuses = cycle([self.bot.get_user(self.bot.owner_id)] + [self.bot.get_user(id) for id in config["DEVELOPERS"]] + ["masterofcubesau.com"])
+        self.statuses = cycle( [self.bot.get_user(id) for id in MOC_DB.column("SELECT UserID FROM Developers")] + ["masterofcubesau.com"])
 
 async def setup(bot):
     await bot.add_cog(Status(bot))
