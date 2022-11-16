@@ -40,7 +40,9 @@ Type `/` in your Discord server to see available commands. Alternatively, you ma
 
 ## Deployment
 
-Ensure you have installed the following:
+MOCBOT currently isn't intended to be deployed however, the capability to deploy MOCBOT does exist.
+
+To deploy MOCBOT, ensure you have installed the following:
 
 - [Python 3.10](https://www.python.org/downloads/release/python-3108/)
 
@@ -54,6 +56,8 @@ To deploy this project run
   # Unix
   .MOCBOT/bin/python launcher.py
 ```
+
+You will now need to populate a `config.yml` file in order for MOCBOT to run. See [config.template.yml](https://github.com/MasterOfCubesAU/MOCBOT/blob/master/config.template.yml) for a template.
 
 
 ## Branches
