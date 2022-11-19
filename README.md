@@ -40,7 +40,7 @@ Type `/` in your Discord server to see available commands. Alternatively, you ma
 
 ## Deployment
 
-MOCBOT currently isn't intended to be deployed however, the capability to deploy MOCBOT does exist.
+MOCBOT currently isn't intended to be deployed, however, the capability to deploy MOCBOT does exist.
 
 To deploy MOCBOT, ensure you have installed the following:
 
