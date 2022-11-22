@@ -28,7 +28,8 @@ class MOCBOT(commands.Bot):
         MOC_DB.connect()
         await self.load_cog_manager()
         self.appinfo = await super().application_info()
-        self.avatar_url = self.appinfo.icon.url
+        if hasattr(self.appinfo,'icon'):
+            self.avatar_url = self.appinfo.icon.url
     
     def setup_logger(self):
         logging.config.dictConfig(config["LOGGING"])
