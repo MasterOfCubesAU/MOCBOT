@@ -1,7 +1,7 @@
 from discord.ext import commands
 from discord.ui import Button, View
 from discord import app_commands
-from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
+from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB,MOC_GUILD
 from typing import Literal, Union, Optional
 import discord
 import logging
@@ -73,7 +73,7 @@ class Cogs(commands.Cog):
             else:
                 await self.load_cog(cog)
      
-    CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.", guild_ids=[231230403053092864, 422983658257907732])
+    CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.", guild_ids=[DEV_GUILD.id, MOC_GUILD.id])
     @CogGroup.command(name="list", description="Lists all cog statuses.")
     async def list(self, interaction: discord.Interaction):
         embed = self.bot.create_embed("MOCBOT SETUP", None, None)
