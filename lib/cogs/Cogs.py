@@ -73,7 +73,7 @@ class Cogs(commands.Cog):
             else:
                 await self.load_cog(cog)
      
-    CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.", guild_ids=[DEV_GUILD, MOC_GUILD])
+    CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.", guild_ids=[DEV_GUILD.id, MOC_GUILD.id])
     @CogGroup.command(name="list", description="Lists all cog statuses.")
     async def list(self, interaction: discord.Interaction):
         embed = self.bot.create_embed("MOCBOT SETUP", None, None)
