@@ -28,7 +28,10 @@ class MOCBOT(commands.Bot):
         MOC_DB.connect()
         await self.load_cog_manager()
         self.appinfo = await super().application_info()
-        self.avatar_url = self.appinfo.icon.url
+        if self.appinfo.icon is not None:
+            self.avatar_url = self.appinfo.icon.url
+        else:
+            self.avatar_url = f"https://cdn.discordapp.com/embed/avatars/{int(self.user.discriminator) % 5}.png"
     
     def setup_logger(self):
         logging.config.dictConfig(config["LOGGING"])
