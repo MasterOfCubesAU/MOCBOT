@@ -4,12 +4,12 @@ DEPENDENCIES: {}
 GUILD_IDS:
   DEV: null
   MOC: null
-  
- # ======= TOKENS =========
+
+  # ======= TOKENS =========
 
 TOKENS:
-    PRODUCTTON: null
-    DEVELOPMENT: null
+  PRODUCTTON: null
+  DEVELOPMENT: null
 
 # ======= API/SERVER CONNECTIONS =========
 DATABASE:
@@ -26,45 +26,49 @@ LAVALINK:
 SPOTIFY:
   CLIENT_ID: null
   SECRET: null
- 
- 
+
 # ======= LOGGING =========
 
-LOGGING:  {
-    "version": 1,
-    "formatters": {
-        "standard": {
-            "format": "%(asctime)s %(levelname)-6s %(name)-15s %(message)s",
-            "datefmt": "%Y-%m-%d %H:%M:%S"
-        },
-        "ColouredFormatter": {
-            "()": "utils.ColouredFormatter.ColouredFormatter"
-        }
-    },
-    "handlers": {
-        "file": {
-            "class": "logging.handlers.RotatingFileHandler",
-            "formatter": "standard",
-            "level": "DEBUG",
-            "filename": "logs/latest.log",
-            "mode": "w",
+LOGGING:
+  {
+    'version': 1,
+    'formatters':
+      {
+        'standard':
+          {
+            'format': '%(asctime)s %(levelname)-6s %(name)-15s %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+          },
+        'ColouredFormatter':
+          { '()': 'utils.ColouredFormatter.ColouredFormatter' },
+      },
+    'handlers':
+      {
+        'file':
+          {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'formatter': 'standard',
+            'level': 'DEBUG',
+            'filename': 'logs/latest.log',
+            'mode': 'w',
             'maxBytes': 100000,
             'backupCount': 5,
-        },
-        "stdout": {
-            "class": "logging.StreamHandler",
-            "formatter": "ColouredFormatter",
-            "level": "INFO",
-            "stream": "ext://sys.stdout"
-        }
-    },
-    "loggers": {
-        "": {
-            "level": "DEBUG",
-            "handlers": [
-                "file", "stdout"
-            ],
-            "propagate": False
-        }
-    }
-}
+          },
+        'stdout':
+          {
+            'class': 'logging.StreamHandler',
+            'formatter': 'ColouredFormatter',
+            'level': 'INFO',
+            'stream': 'ext://sys.stdout',
+          },
+      },
+    'loggers':
+      {
+        '':
+          {
+            'level': 'DEBUG',
+            'handlers': ['file', 'stdout'],
+            'propagate': False,
+          },
+      },
+  }

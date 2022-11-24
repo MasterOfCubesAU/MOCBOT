@@ -1,12 +1,18 @@
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.ui import Button, View
-from discord import app_commands
+from discord import app_commands, utils
 from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
 from typing import Literal, Union, Optional
+from datetime import datetime, timedelta
+from pytz import timezone
 import logging
 import discord
 import uuid
+import re
+import asyncio
 
+timeRegex = re.compile("(?:(\d{1,5})(h|s|m|d))+?")
+timeDict = {"h":3600, "s":1, "m":60, "d":86400}
 
 class ConfirmButtons(View):
     def __init__(self, *, timeout=10):
@@ -23,17 +29,33 @@ class ConfirmButtons(View):
         self.confirmed = True
         self.clear_items()
         await interaction.response.edit_message(view=self)
-        self.stop()
-        
+        self.stop()     
 
 class UserModeration(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
         self.logger = logging.getLogger(__name__)
+        self.punishments = {}
+        self.checkUnmute.start()
+
+    async def convert(self, interaction, arguments):
+        args = arguments.lower()
+        matches = re.findall(timeRegex, args)
+        time = 0
+        for value, key in matches:
+            try:
+                time += timeDict[key] * float(value)
+            except:
+                pass
+        return time
 
     async def cog_load(self):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
+        await self.updatePunishmentDict()
+
+    async def cog_unload(self):
+        self.checkUnmute.stop()
         
 
     @app_commands.command(name="kick", description="Kicks specified user.")
@@ -110,8 +132,45 @@ class UserModeration(commands.Cog):
         await user.send(embed=self.bot.create_embed("MOCBOT WARNINGS", f"You have been warned in **{interaction.guild}** by {interaction.user.mention} for **{reason}**. Please refer to your MOCBOT account to view your warnings.", None), view=view)
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT WARNINGS", f"{user.mention} has successfully been warned for **{reason}**.", None), ephemeral=True)
 
+    @app_commands.command(name="mute", description="Mutes the specified user in voice channels.")
+    @app_commands.guilds(DEV_GUILD)
+    @app_commands.checks.has_permissions(mute_members=True)
+    @app_commands.describe(
+        member="The member you would like to mute.",
+        reason="The reason for muting this user.",
+        time="How long to mute the user for. E.g. 10s, 5m, 3h, 1d"
+    )
+    async def mute(self, interaction: discord.Interaction, member: discord.Member, reason: str, time: str):
+        convertedTime = await self.convert(interaction, time)
+        if convertedTime == 0:
+            return await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MODERATION", f"The specified time is invalid. Examples: `10s` | `5m` | `4h` | `1d`.", None), ephemeral=True)
 
-    
+        currentTime = utils.utcnow()
+        finishTime = currentTime + timedelta(seconds=convertedTime)
+        punishmentId = str(uuid.uuid4())
+        MOC_DB.execute("INSERT INTO Punishments (PunishmentID, UserID, GuildID, Reason, Time, AdminID) VALUES (%s, %s, %s, %s, %s, %s)", punishmentId, member.id, interaction.guild.id, reason, finishTime.isoformat(), interaction.user.id)
+        self.punishments[punishmentId] = finishTime
+        await member.edit(mute=True)
+        try:
+            await member.send(embed=self.bot.create_embed("MOCBOT MODERATION", f'You have been muted in the **{interaction.guild.name}** server for **{reason}**. Time at which you will be unmuted: <t:{round(finishTime.timestamp())}:R>', None))
+        except Exception:
+            pass
+        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MODERATION", f'**{member.mention}** has been muted in the **{interaction.guild.name}** server for **{reason}**. The user will automatically be unmuted <t:{round(finishTime.timestamp())}:R>', None), ephemeral=True)
 
+    @tasks.loop(seconds=1.0)
+    async def checkUnmute(self):
+        for punishmentId in self.punishments:
+            if self.punishments[punishmentId] <= utils.utcnow():
+                punishmentRes = MOC_DB.record("SELECT * FROM Punishments WHERE PunishmentID = %s", punishmentId)
+                if punishmentRes is not None:
+                    guild = self.bot.get_guild(punishmentRes[2])
+                    member = guild.get_member(punishmentRes[1])
+                    await member.edit(mute=False)
+                    MOC_DB.execute("DELETE FROM Punishments WHERE PunishmentID = %s", punishmentId)
+                    await self.updatePunishmentDict()
+
+    async def updatePunishmentDict(self):
+        self.punishments = {punishment[0]: timezone('UTC').localize(punishment[4]) for punishment in MOC_DB.records("SELECT * FROM Punishments")}
+        
 async def setup(bot):
     await bot.add_cog(UserModeration(bot))
