@@ -14,13 +14,15 @@ with open("./config.yml", "r") as f:
 DEV_GUILD = discord.Object(id=config["GUILD_IDS"]["DEV"])
 MOC_GUILD = discord.Object(id=config["GUILD_IDS"]["MOC"])
 
+
 class MOCBOT(commands.Bot):
 
     def __init__(self, is_dev):
-        super().__init__(command_prefix="!", owner_id=169402073404669952, intents=discord.Intents.all())
+        super().__init__(command_prefix="!",
+                         owner_id=169402073404669952, intents=discord.Intents.all())
         self.is_dev = is_dev
         self.mode = "DEVELOPMENT" if is_dev else "PRODUCTION"
-   
+
     async def setup_hook(self):
         self.setup_logger()
         global MOC_DB
@@ -28,8 +30,11 @@ class MOCBOT(commands.Bot):
         MOC_DB.connect()
         await self.load_cog_manager()
         self.appinfo = await super().application_info()
-        self.avatar_url = self.appinfo.icon.url
-    
+        if self.appinfo.icon is not None:
+            self.avatar_url = self.appinfo.icon.url
+        else:
+            self.avatar_url = f"https://cdn.discordapp.com/embed/avatars/{int(self.user.discriminator) % 5}.png"
+
     def setup_logger(self):
         logging.config.dictConfig(config["LOGGING"])
         self.logger = logging.getLogger(__name__)
@@ -44,16 +49,18 @@ class MOCBOT(commands.Bot):
     def run(self):
         super().run(config["TOKENS"][self.mode], log_handler=None)
 
-
     def create_embed(self, title, description, colour):
-        embed = discord.Embed(title=None, description=description, colour=colour if colour else 0xDC3145, timestamp=discord.utils.utcnow())
-        embed.set_author(name=title if title else None, icon_url=self.avatar_url)
+        embed = discord.Embed(title=None, description=description,
+                              colour=colour if colour else 0xDC3145, timestamp=discord.utils.utcnow())
+        embed.set_author(name=title if title else None,
+                         icon_url=self.avatar_url)
         return embed
 
     #  Doesn't work, need to look into
     @staticmethod
     def has_permissions(**perms):
         original = app_commands.checks.has_permissions(**perms)
+
         async def extended_check(interaction):
             if interaction.guild is None:
                 return False
@@ -72,11 +79,12 @@ class MOCBOT(commands.Bot):
         )
 
     async def on_interaction(self, interaction):
-        self.logger.info(f"[COMMAND] [{interaction.guild} // {interaction.guild.id}] {interaction.user} ({interaction.user.id}) used command {interaction.command.name}")
+        self.logger.info(
+            f"[COMMAND] [{interaction.guild} // {interaction.guild.id}] {interaction.user} ({interaction.user.id}) used command {interaction.command.name}")
 
     async def on_message(self, message):
         await self.wait_until_ready()
-        if(isinstance(message.channel, discord.DMChannel) and message.author.id == self.owner_id):
+        if (isinstance(message.channel, discord.DMChannel) and message.author.id in [self.owner_id, 288206127747825664]):
             message_components = message.content.lower().split(" ")
             match message_components[0]:
                 case "sync":

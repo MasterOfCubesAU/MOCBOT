@@ -1,7 +1,7 @@
 from discord.ext import commands
 from discord.ui import Button, View
 from discord import app_commands
-from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
+from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB, MOC_GUILD
 from typing import Literal, Union, Optional
 import discord
 import logging
@@ -18,10 +18,10 @@ class Cogs(commands.Cog):
         self.disabled_cogs = []
         self.unloaded_cogs = []
         self.logger = logging.getLogger(__name__)
-        
+
         if self.bot.is_dev:
             for cog in [path.split("\\")[-1][:-3] if os.name == "nt" else path.split("\\")[-1][:-3].split("/")[-1] for path in glob("./lib/cogs/*.py")]:
-                if cog != "Cogs":
+                if cog not in ["Cogs", "ErrorHandler"]:
                     self.disabled_cogs.append(cog)
         else:
             self.disabled_cogs.append("Template")
@@ -72,15 +72,20 @@ class Cogs(commands.Cog):
                     self.unloaded_cogs.append(cog)
             else:
                 await self.load_cog(cog)
-     
-    CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.", guild_ids=[231230403053092864, 422983658257907732])
+
+    CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.", guild_ids=[
+                                  DEV_GUILD.id, MOC_GUILD.id])
+
     @CogGroup.command(name="list", description="Lists all cog statuses.")
     async def list(self, interaction: discord.Interaction):
         embed = self.bot.create_embed("MOCBOT SETUP", None, None)
-        embed.add_field(name="Enabled", value=">>> {}".format("\n".join([x for x in self.bot.cogs])), inline=True)
+        embed.add_field(name="Enabled", value=">>> {}".format(
+            "\n".join([x for x in self.bot.cogs])), inline=True)
         if bool([cog for cog in self.unloaded_cogs + self.disabled_cogs if cog not in self.bot.cogs]):
-            embed.add_field(name="Disabled", value=">>> {}".format("\n".join([cog for cog in self.unloaded_cogs + self.disabled_cogs if cog not in self.bot.cogs])), inline=True)
-        embed.add_field(name="\u200b", value=f"You may also use the following command to manage cogs.\n> `/cog [load|unload|reload] [*cogs]`", inline=False)
+            embed.add_field(name="Disabled", value=">>> {}".format("\n".join(
+                [cog for cog in self.unloaded_cogs + self.disabled_cogs if cog not in self.bot.cogs])), inline=True)
+        embed.add_field(
+            name="\u200b", value=f"You may also use the following command to manage cogs.\n> `/cog [load|unload|reload] [*cogs]`", inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @CogGroup.command(name="unload", description="Unloads cogs.")
@@ -96,9 +101,11 @@ class Cogs(commands.Cog):
             except Exception as e:
                 failed_cogs.append(cog)
         if failed_cogs:
-            embed = self.bot.create_embed("MOCBOT SETUP", f"Could not unload {', '.join([cog for cog in failed_cogs])}.", None)
+            embed = self.bot.create_embed(
+                "MOCBOT SETUP", f"Could not unload {', '.join([cog for cog in failed_cogs])}.", None)
         else:
-            embed = self.bot.create_embed("MOCBOT SETUP", f"Unloaded {', '.join([cog for cog in cogs])}.", None)
+            embed = self.bot.create_embed(
+                "MOCBOT SETUP", f"Unloaded {', '.join([cog for cog in cogs])}.", None)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @CogGroup.command(name="load", description="Loads cogs.")
@@ -114,9 +121,11 @@ class Cogs(commands.Cog):
             except Exception as e:
                 failed_cogs.append(cog)
         if failed_cogs:
-            embed = self.bot.create_embed("MOCBOT SETUP", f"Could not load {', '.join([cog for cog in failed_cogs])}.", None)
+            embed = self.bot.create_embed(
+                "MOCBOT SETUP", f"Could not load {', '.join([cog for cog in failed_cogs])}.", None)
         else:
-            embed = self.bot.create_embed("MOCBOT SETUP", f"Loaded {', '.join([cog for cog in cogs])}.", None)
+            embed = self.bot.create_embed(
+                "MOCBOT SETUP", f"Loaded {', '.join([cog for cog in cogs])}.", None)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @CogGroup.command(name="reload", description="Reloads cogs.")
@@ -132,9 +141,11 @@ class Cogs(commands.Cog):
             except Exception as e:
                 failed_cogs.append(cog)
         if failed_cogs:
-            embed = self.bot.create_embed("MOCBOT SETUP", f"Could not reload {', '.join([cog for cog in failed_cogs])}.", None)
+            embed = self.bot.create_embed(
+                "MOCBOT SETUP", f"Could not reload {', '.join([cog for cog in failed_cogs])}.", None)
         else:
-            embed = self.bot.create_embed("MOCBOT SETUP", f"Reloaded {', '.join([cog for cog in cogs])}.", None)
+            embed = self.bot.create_embed(
+                "MOCBOT SETUP", f"Reloaded {', '.join([cog for cog in cogs])}.", None)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
