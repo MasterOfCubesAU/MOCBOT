@@ -224,11 +224,11 @@ class Music(commands.Cog):
         if not player.is_playing:
             await player.play()
 
-    @play.autocomplete('query')
-    async def autocomplete_callback(self, interaction: discord.Interaction, current: str):
-        if not re.compile(r'https?://(?:www\.)?.+').match(current):
-            search = requests.get(f"http://suggestqueries.google.com/complete/search?client=youtube&ds=yt&client=firefox&q={current.replace(' ', '%20')}")
-            return [app_commands.Choice(name=result, value=result) for result in search.json()[1]]
+    # @play.autocomplete('query')
+    # async def autocomplete_callback(self, interaction: discord.Interaction, current: str):
+    #     if not re.compile(r'https?://(?:www\.)?.+').match(current):
+    #         search = requests.get(f"http://suggestqueries.google.com/complete/search?client=youtube&ds=yt&client=firefox&q={current.replace(' ', '%20')}")
+    #         return [app_commands.Choice(name=result, value=result) for result in search.json()[1]]
 
     @app_commands.command(name="skip", description="Skips the current media to the next one in queue.")
     @app_commands.describe(
