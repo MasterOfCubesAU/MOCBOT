@@ -1,6 +1,9 @@
 from discord.ext import menus
 from discord.ui import Button, View
 import discord
+from functools import reduce
+import datetime
+
 
 class QueueMenu(View, menus.MenuPages):
     def __init__(self, source, interaction):
@@ -57,9 +60,11 @@ class QueueMenu(View, menus.MenuPages):
         return interaction.user == self.ctx.author
 
     def createButtons(self):
-        first_button = Button(label="First Page", style=discord.ButtonStyle.gray)
+        first_button = Button(label="First Page",
+                              style=discord.ButtonStyle.gray)
         first_button.callback = self.first_page_callback
-        previous_button = Button(label="Previous Page", style=discord.ButtonStyle.gray)
+        previous_button = Button(
+            label="Previous Page", style=discord.ButtonStyle.gray)
         previous_button.callback = self.previous_page_callback
         next_button = Button(label="Next Page", style=discord.ButtonStyle.gray)
         next_button.callback = self.next_page_callback
@@ -72,10 +77,13 @@ class QueueMenu(View, menus.MenuPages):
 
     async def first_page_callback(self, interaction):
         await self.show_page(0, interaction)
+
     async def previous_page_callback(self, interaction):
         await self.show_checked_page(self.current_page - 1, interaction)
+
     async def next_page_callback(self, interaction):
         await self.show_checked_page(self.current_page + 1, interaction)
+
     async def last_page_callback(self, interaction):
         await self.show_page(self._source.get_max_pages() - 1, interaction)
 
@@ -88,10 +96,19 @@ class QueuePagination(menus.ListPageSource):
         self.player = player
         self.emptyQueueMsg = "Type `/play [SONG]` to add songs to the queue."
 
+    async def formatDuration(self, ms):
+        return datetime.datetime.utcfromtimestamp(ms / 1000).strftime("%Hh %Mm %Ss")
+
     async def format_page(self, menu, entries):
         offset = (menu.current_page * self.per_page) + 1
-        now_playing =  f"[{self.player.current.title}]({self.player.current.uri})" if self.player is not None and self.player.current is not None else "N/A"
+        now_playing = f"[{self.player.current.title}]({self.player.current.uri})" if self.player is not None and self.player.current is not None else "N/A"
         queueContent = "{}\n\n**CURRENT QUEUE:**\n{}".format(f"> NOW PLAYING: {now_playing}", "\n".join([f'{index}. [{track.title}]({track.uri}) - {await self.Music.formatDuration(track.duration) if not track.stream else "LIVE STREAM"}' for index, track in enumerate(entries, start=offset)]) if entries else self.emptyQueueMsg)
-        embed = self.interaction.client.create_embed("MOCBOT MUSIC", queueContent, None)
-        embed.set_footer(text=f"Page {menu.current_page + 1}/{self.get_max_pages() or 1} | Requested by {self.interaction.user}")
+        embed = self.interaction.client.create_embed(
+            "MOCBOT MUSIC", queueContent, None)
+        if entries:
+            embed.add_field(name="**Total Duration**", value=await self.formatDuration(reduce(lambda a, b: a + b, [song.duration if not song.stream else 0 for song in self.player.queue])), inline=True)
+            embed.add_field(name="**Total Tracks**",
+                            value=len(self.player.queue), inline=True)
+        embed.set_footer(
+            text=f"Page {menu.current_page + 1}/{self.get_max_pages() or 1} | Requested by {self.interaction.user}")
         return embed
