@@ -1,7 +1,6 @@
 from discord.ext import commands
 from discord.ui import Button, View
 from discord import app_commands
-from lib.bot import 
 from typing import Literal, Optional
 
 import discord

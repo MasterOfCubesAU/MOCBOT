@@ -14,7 +14,7 @@ class API:
         for key in data:
             try:
                 temp = int(data[key])
-            except ValueError:
+            except (TypeError, ValueError):
                 continue
             else:
                 data[key] = temp

@@ -1,5 +1,6 @@
 from discord.ext import commands
 from discord.ui import View
+from APIHandler import API
 
 import discord
 import logging
@@ -22,7 +23,7 @@ class Guilds(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):
-        MOC_DB.execute("DELETE FROM Guild_Settings WHERE GuildID = %s", guild.id)
+        API.delete(f'/settings/{guild.id}')
 
 async def setup(bot):
     await bot.add_cog(Guilds(bot))

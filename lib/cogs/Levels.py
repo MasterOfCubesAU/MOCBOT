@@ -1,6 +1,7 @@
 from discord.ext import commands, tasks
 from discord.ui import View
 from discord import app_commands, File, Object, Status
+from lib.APIHandler import API
 from lib.bot import config
 import discord
 import logging
@@ -52,13 +53,13 @@ class Levels(commands.Cog):
             return xp_difference
 
     async def is_ranked(self, member):
-        return bool(MOC_DB.field("SELECT UserID FROM XP WHERE (GuildID = %s AND UserID = %s)", member.guild.id, member.id))
+        return bool(API.get(f'/xp/{member.guild.id}/{member.id}'))
     async def get_xp(self, member):
-        return MOC_DB.field("SELECT XP FROM XP WHERE (GuildID = %s AND UserID = %s)", member.guild.id, member.id)
+        return API.get(f'/xp/{member.guild.id}/{member.id}').XP
     async def get_level(self, member):
-        return MOC_DB.field("SELECT Level FROM XP WHERE (GuildID = %s AND UserID = %s)", member.guild.id, member.id)
+        return API.get(f'/xp/{member.guild.id}/{member.id}').Level
     async def get_rank(self, member):
-        db_lb = MOC_DB.records("SELECT UserID FROM `XP` WHERE GuildID = %s ORDER BY `XP`.`XP` DESC", member.guild.id)
+        data = API.get(f'/xp/{member.guild.id}')
         if(db_lb):
             member_dict = {}
             counter = 1
