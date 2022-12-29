@@ -1,6 +1,6 @@
 from discord.ext import commands
 from discord import app_commands
-from lib.bot import config, MOC_GUILD
+from lib.bot import config, MOC_GUILD, DEV_GUILD
 import discord
 import logging
 
@@ -72,7 +72,7 @@ class Cogs(commands.Cog):
             else:
                 await self.load_cog(cog)
 
-    CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.", guild_ids=[MOC_GUILD.id])
+    CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.", guild_ids=[DEV_GUILD.id])
 
     @CogGroup.command(name="list", description="Lists all cog statuses.")
     async def list(self, interaction: discord.Interaction):
