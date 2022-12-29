@@ -1,15 +1,12 @@
 from discord.ext import commands
-from discord.ui import Button, View
 from discord import app_commands
-from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB, MOC_GUILD
-from typing import Literal, Union, Optional
+from lib.bot import config, DEV_GUILD, MOC_GUILD
 import discord
 import logging
 
 from glob import glob
 import os
 import traceback
-
 
 class Cogs(commands.Cog):
 
@@ -147,7 +144,6 @@ class Cogs(commands.Cog):
             embed = self.bot.create_embed(
                 "MOCBOT SETUP", f"Reloaded {', '.join([cog for cog in cogs])}.", None)
         await interaction.response.send_message(embed=embed, ephemeral=True)
-
 
 async def setup(bot):
     cogs_class = Cogs(bot)

@@ -1,13 +1,9 @@
 from discord.ext import commands, tasks
-from discord.ui import Button, View, Modal, TextInput, Select
-from discord import app_commands, Interaction, NotFound, PermissionOverwrite, Object, Status
-from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
-from typing import Literal, Union, Optional
+from discord.ui import Button, View, Modal, TextInput
+from discord import app_commands, Interaction, NotFound, PermissionOverwrite, Status
 import discord
 import logging
 import asyncio
-
-from random import randint
 
 class LobbyPrompt(View):
     def __init__(self, *, timeout=180, interaction: discord.Interaction):

@@ -1,12 +1,9 @@
 from discord.ext import commands
 from discord.ui import Button, View
 from discord import app_commands
-from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
-from typing import Literal, Union, Optional
+from lib.APIHandler import API
 import logging
 import discord
-import uuid
-
 
 class ConfirmButtons(View):
     def __init__(self, *, timeout=10):
@@ -86,7 +83,6 @@ class UserModeration(commands.Cog):
         else:
             await interaction.response.send_message(f"The user {user.mention} could has been unbanned.", ephemeral=True)
 
-
     @app_commands.command(name="warnings", description="Check user warnings.")
     # @app_commands.guilds(DEV_GUILD)
     async def warnings(self, interaction: discord.Interaction):
@@ -106,12 +102,9 @@ class UserModeration(commands.Cog):
     async def add(self, interaction: discord.Interaction, user: discord.User, reason: str):
         view=View()
         view.add_item(discord.ui.Button(label="View account",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/{interaction.guild.id}/account"))
-        MOC_DB.execute("INSERT INTO Warnings (WarningID, UserID, GuildID, Reason, AdminID) VALUES (%s, %s, %s, %s, %s)", str(uuid.uuid4()), user.id, interaction.guild.id, reason, interaction.user.id)
+        API.post(f'/warnings/{interaction.guild.id}/{interaction.user.id}', {"reason": reason, "adminID": str(interaction.user.id)})
         await user.send(embed=self.bot.create_embed("MOCBOT WARNINGS", f"You have been warned in **{interaction.guild}** by {interaction.user.mention} for **{reason}**. Please refer to your MOCBOT account to view your warnings.", None), view=view)
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT WARNINGS", f"{user.mention} has successfully been warned for **{reason}**.", None), ephemeral=True)
-
-
-    
 
 async def setup(bot):
     await bot.add_cog(UserModeration(bot))

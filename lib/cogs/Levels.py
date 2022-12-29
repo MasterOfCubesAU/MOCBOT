@@ -1,8 +1,7 @@
 from discord.ext import commands, tasks
-from discord.ui import Button, View
+from discord.ui import View
 from discord import app_commands, File, Object, Status
-from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
-from typing import Literal, Union, Optional
+from lib.bot import config
 import discord
 import logging
 
@@ -13,7 +12,6 @@ from io import BytesIO
 import datetime
 import math
 import json
-
 
 class Levels(commands.Cog):
 
@@ -338,7 +336,6 @@ class Levels(commands.Cog):
         await self.set_xp(member, value)
         await member.send(embed=self.bot.create_embed("MOCBOT LEVELS", f"**{interaction.user}** has set your XP in the **{interaction.guild.name}** server to **{value} XP**.", None))
         await interaction.response.send_message(f"The user {member.mention} successfully had their XP set to **{value}**", ephemeral=True)
-
 
 async def setup(bot):
     await bot.add_cog(Levels(bot))

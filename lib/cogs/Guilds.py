@@ -1,12 +1,8 @@
 from discord.ext import commands
-from discord.ui import Button, View
-from discord import app_commands
-from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
-from typing import Literal, Union, Optional
+from discord.ui import View
 
 import discord
 import logging
-
 
 class Guilds(commands.Cog):
 

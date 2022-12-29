@@ -1,8 +1,5 @@
 from discord.ext import commands, tasks
-from discord.ui import Button, View
-from discord import app_commands
-from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
-from typing import Literal, Union, Optional
+from lib.APIHandler import API
 
 import discord
 import logging
@@ -29,7 +26,7 @@ class Status(commands.Cog):
     @statuschange.before_loop
     async def before_statuschange(self):
         await self.bot.wait_until_ready()
-        self.statuses = cycle( [self.bot.get_user(id) for id in MOC_DB.column("SELECT UserID FROM Developers")] + ["masterofcubesau.com"])
+        self.statuses = cycle( [self.bot.get_user(id) for id in API.get('/developers')] + ["masterofcubesau.com"])
 
 async def setup(bot):
     await bot.add_cog(Status(bot))
