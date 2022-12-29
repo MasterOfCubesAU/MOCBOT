@@ -26,6 +26,7 @@ class Status(commands.Cog):
     @statuschange.before_loop
     async def before_statuschange(self):
         await self.bot.wait_until_ready()
+        print(API.get('/developers'))
         self.statuses = cycle( [self.bot.get_user(id) for id in API.get('/developers')] + ["masterofcubesau.com"])
 
 async def setup(bot):

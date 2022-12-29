@@ -102,7 +102,7 @@ class UserModeration(commands.Cog):
     async def add(self, interaction: discord.Interaction, user: discord.User, reason: str):
         view=View()
         view.add_item(discord.ui.Button(label="View account",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/{interaction.guild.id}/account"))
-        API.post(f'/warnings/{interaction.guild.id}/{interaction.user.id}', {"reason": reason, "adminID": str(interaction.user.id)})
+        API.post(f'/warnings/{interaction.guild.id}/{user.id}', {"reason": reason, "adminID": str(interaction.user.id)})
         await user.send(embed=self.bot.create_embed("MOCBOT WARNINGS", f"You have been warned in **{interaction.guild}** by {interaction.user.mention} for **{reason}**. Please refer to your MOCBOT account to view your warnings.", None), view=view)
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT WARNINGS", f"{user.mention} has successfully been warned for **{reason}**.", None), ephemeral=True)
 

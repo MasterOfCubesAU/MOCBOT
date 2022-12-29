@@ -1,5 +1,6 @@
 from discord.ext import commands
 import logging
+
 import traceback
 
 class ErrorHandler(commands.Cog):
@@ -19,6 +20,7 @@ class ErrorHandler(commands.Cog):
         
         self.logger.error(f"[ERROR] Unhandled Error: {error}")
         traceback.print_exc()
+        raise error
 
 async def setup(bot):
     await bot.add_cog(ErrorHandler(bot))
