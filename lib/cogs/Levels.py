@@ -297,14 +297,12 @@ class Levels(commands.Cog):
 
     # Commands
     @app_commands.command(name="leaderboard", description="Displays the server leaderboard.")
-    @app_commands.guilds(DEV_GUILD)
     async def invite(self, interaction: discord.Interaction):
         view=View()
         view.add_item(discord.ui.Button(label="View leaderboard",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/{interaction.guild.id}/leaderboard"))
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT LEVELS", f"Use the button below to view the server leaderboard.", None), view=view)
 
     @app_commands.command(name="rank", description="Get your XP.")
-    @app_commands.guilds(DEV_GUILD)
     @app_commands.describe(
         member="The member to search for."
     )
@@ -316,7 +314,7 @@ class Levels(commands.Cog):
         await interaction.delete_original_response()
 
     # XP Commands
-    XPGroup = app_commands.Group(name="xp", description="Manages user XP.", guild_ids=[DEV_GUILD.id])
+    XPGroup = app_commands.Group(name="xp", description="Manages user XP.")
     @XPGroup.command(name="add", description="Adds XP to a user.")
     @app_commands.checks.has_permissions(manage_guild=True)
     @app_commands.describe(
