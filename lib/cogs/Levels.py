@@ -15,7 +15,6 @@ import asyncio
 from io import BytesIO
 import datetime
 import math
-import json
 from typing import Optional
 
 class Levels(commands.Cog):
@@ -33,7 +32,6 @@ class Levels(commands.Cog):
     async def cog_load(self):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
         self.voice_xp.start()
-        # await self.level_integrity()
         # await self.update_roles()
 
     async def cog_unload(self):
@@ -58,20 +56,17 @@ class Levels(commands.Cog):
 
     async def get_xp_data(self, member):
         data = self.cache.get(f'{member.guild.id}/{member.id}')
-        time_now = datetime.datetime.now()
         if data:
-            if not (time_now > datetime.datetime.fromtimestamp(data.get("XPLock", None)) and time_now > datetime.datetime.fromtimestamp(data.get("VoiceChannelXPLock", None))):
-                return data
-
+            return data
         try:
             data = API.get(f'/xp/{member.guild.id}/{member.id}')
         except HTTPError as e:
             if e.response.status_code == 404:
-                self.update_xp_cache(member, {})
                 return None 
             else:
                 raise e
         else:
+            print('updating cache')
             self.update_xp_cache(member, data)
             return data
 
@@ -132,9 +127,8 @@ class Levels(commands.Cog):
         xp_lock = res.get("XPLock", None) if res is not None else None
         if xp_lock:
             if datetime.datetime.now() > datetime.datetime.fromtimestamp(xp_lock):
-                newData = {"XP": self.messages_xp * self.global_multiplier, "XPLock": (datetime.datetime.now() + datetime.timedelta(seconds=4)).timestamp() }
-                # TODO: below if condition missing checkLevelUpPerms
-                if await self.add_xp(message.author, newData, res):
+                newData = {"XP": self.messages_xp * self.global_multiplier, "XPLock": (datetime.datetime.now() + datetime.timedelta(seconds=60)).timestamp() }
+                if await self.add_xp(message.author, newData, res) and self.check_level_up_perms(message.guild.id):
                     await message.channel.send(message.author.mention, file=await self.generate_level_up_card(message.author))
         else:
             await self.add_xp(message.author, {"XP": self.messages_xp * self.global_multiplier}, res)
@@ -149,34 +143,27 @@ class Levels(commands.Cog):
         ):
             await self.message_xp(message)
 
-    def keystoint(self, x):
+    def keys_to_int(self, x):
         return {int(k): v for k, v in x.items()}
 
-    # async def checkLevelUpPerms(self, guild_id):
-    #     return bool(int(MOC_DB.field(f"SELECT XP_LVL_UP_MSG FROM Guild_Settings WHERE GuildID = {guild_id}")))
+    def check_level_up_perms(self, guild_id):
+        data = API.get(f'/settings/{guild_id}')
+        return bool(int(data.get("XP_LVL_UP_MSG", None))) if data is not None else False
 
     async def level_integrity(self, oldData=None, member=None):
         data = oldData or await self.get_xp_data(member)
         if member and data is not None:
-            print(data.get("XP", None))
             correct_level = await self.calculate_correct_level(data.get("XP", None))
             current_level = data.get("Level", None)
-            print(correct_level, current_level)
             if current_level != correct_level:
                 self.update_xp_data(member, {"Level": correct_level}, 'PATCH')
                 if current_level < correct_level:
                    return True               
-        # else:
-        #     data = MOC_DB.records("SELECT * FROM XP")
-        #     for record in data:
-        #         correct_level = await self.calculate_correct_level(record[2])
-        #         if record[3] != correct_level:
-        #             MOC_DB.execute("UPDATE XP SET Level = %s WHERE UserID = %s AND GuildID = %s", correct_level, record[1], record[0])
 
     # async def update_roles(self, member=None):
     #     if member:
     #         if (role_map := MOC_DB.field("SELECT LevelRoles FROM Roles WHERE GuildID = %s", member.guild.id)) != None:
-    #             role_map = self.keystoint(json.loads(role_map))
+    #             role_map = self.keys_to_int(json.loads(role_map))
     #             member_level = await self.get_level(member) or 0
     #             member_roles = member.roles
     #             low_difference = [
@@ -293,30 +280,25 @@ class Levels(commands.Cog):
         tempFile.seek(0)
         return File(tempFile, "rank.png")
 
-    @tasks.loop(seconds=voiceXPInterval)
+    @tasks.loop(minutes=voiceXPInterval)
     async def voice_xp(self):
-        print(self.cache.items_with_timestamp())
-        # for guild in self.bot.guilds:
-        #     for channel in guild.voice_channels:
-        #         real_members = [member for member in channel.members if not member.bot and not (member.voice.self_mute or member.voice.self_deaf)] 
-        #         print(real_members)
-        #         if len(real_members) >= 2:
-        #             if len(real_members) > 2:
-        #                 local_multiplier = 0.125 * (len(real_members) - 2)
-        #             else:
-        #                 local_multiplier = 0
-        #             xp = round(((local_multiplier + 1) * (self.voice_xp_rate/(60/self.voiceXPInterval)))) * self.global_multiplier
-        #             for member in real_members:
-        #                 if member.status == Status.online:
-        #                     route = f"/xp/{member.guild.id}/{member.id}"
-        #                     data = await self.get_xp_data(member)
-        #                     print(data)
-        #                     if data is not None:
-        #                         if(datetime.datetime.now() > datetime.datetime.fromtimestamp(data.get("VoiceChannelXPLock", None))):
-        #                             await self.add_xp(member, xp)
-        #                             API.post(route, {"VoiceChannelXPLock": (datetime.datetime.now() + datetime.timedelta(seconds=1)).isoformat() })
-        #                     else:
-        #                         await self.add_xp(member, xp)
+        for guild in self.bot.guilds:
+            for channel in guild.voice_channels:
+                real_members = [member for member in channel.members if not member.bot and not (member.voice.self_mute or member.voice.self_deaf)] 
+                if len(real_members) >= 2:
+                    if len(real_members) > 2:
+                        local_multiplier = 0.125 * (len(real_members) - 2)
+                    else:
+                        local_multiplier = 0
+                    xp = round(((local_multiplier + 1) * (self.voice_xp_rate/(60/self.voiceXPInterval)))) * self.global_multiplier
+                    for member in real_members:
+                        if member.status == Status.online:
+                            data = await self.get_xp_data(member)
+                            if data is not None:
+                                if(datetime.datetime.now() > datetime.datetime.fromtimestamp(data.get("VoiceChannelXPLock", None))):
+                                    await self.add_xp(member, {"XP": xp, "VoiceChannelXPLock": (datetime.datetime.now() + datetime.timedelta(minutes=5)).timestamp()}, data)
+                            else:
+                                await self.add_xp(member, {"XP": xp})
 
     # Commands
     @app_commands.command(name="leaderboard", description="Displays the server leaderboard.")
