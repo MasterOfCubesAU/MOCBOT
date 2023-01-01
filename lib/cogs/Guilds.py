@@ -1,6 +1,6 @@
 from discord.ext import commands
 from discord.ui import View
-from APIHandler import API
+from utils.APIHandler import API
 
 import discord
 import logging

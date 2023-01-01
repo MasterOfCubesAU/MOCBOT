@@ -5,7 +5,7 @@ import logging
 
 class API:
 
-    BASE_URL = "https://api.masterofcubesau.com/v1"
+    BASE_URL = "http://127.0.0.1:8000/v1"
     API_KEY = config["API_KEY"]
     LOGGER = logging.getLogger(__name__)
 

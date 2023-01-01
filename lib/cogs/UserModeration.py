@@ -22,7 +22,6 @@ class ConfirmButtons(View):
         await interaction.response.edit_message(view=self)
         self.stop()
         
-
 class UserModeration(commands.Cog):
 
     def __init__(self, bot):
@@ -32,7 +31,6 @@ class UserModeration(commands.Cog):
     async def cog_load(self):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
         
-
     @app_commands.command(name="kick", description="Kicks specified user.")
     # @app_commands.guilds(DEV_GUILD)
     @app_commands.checks.has_permissions(kick_members=True)
