@@ -9,6 +9,7 @@ class ErrorHandler(commands.Cog):
         self.bot = bot
         self.bot.tree.on_error = self.on_app_command_error
         self.logger = logging.getLogger(__name__)
+        self.bot.on_error = self.on_error
 
     async def cog_load(self):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
@@ -22,5 +23,9 @@ class ErrorHandler(commands.Cog):
         traceback.print_exc()
         raise error
 
+    async def on_error(self, event, *args, **kwargs):
+        self.logger.error(f"[ERROR] Unhandled Error: {event}, {args}, {kwargs}")
+        traceback.print_exc()
+        
 async def setup(bot):
     await bot.add_cog(ErrorHandler(bot))
