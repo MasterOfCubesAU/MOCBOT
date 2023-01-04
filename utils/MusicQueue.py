@@ -106,7 +106,8 @@ class QueuePagination(menus.ListPageSource):
         embed = self.interaction.client.create_embed(
             "MOCBOT MUSIC", queueContent, None)
         if entries:
-            embed.add_field(name="**Total Duration**", value=await self.formatDuration(reduce(lambda a, b: a + b, [song.duration if not song.stream else 0 for song in self.player.queue])), inline=True)
+            duration = reduce(lambda a, b: a + b, [song.duration if not song.stream else 0 for song in self.player.queue])
+            embed.add_field(name="**Total Duration**", value=await self.formatDuration(duration) if (duration < 86400000) else '>24h', inline=True)
             embed.add_field(name="**Total Tracks**",
                             value=len(self.player.queue), inline=True)
         embed.set_footer(

@@ -18,6 +18,8 @@ import random
 from functools import reduce
 import requests
 
+import traceback
+
 
 class Music(commands.Cog):
 
@@ -143,12 +145,19 @@ class Music(commands.Cog):
 
     async def sendNewNowPlaying(self, guild, player):
         channel = guild.get_channel(self.players[guild.id]["CHANNEL"])
-        message = await channel.fetch_message(self.players[guild.id]["MESSAGE_ID"])
-        if not self.players[guild.id]["FIRST"]:
-            await message.delete()
-            message = await channel.send(embed=await self.generateNowPlayingEmbed(guild, player))
-        self.players[guild.id] = {
-            "CHANNEL": channel.id, "MESSAGE_ID": message.id, "FIRST": False}
+        try:
+            message = await channel.fetch_message(self.players[guild.id]["MESSAGE_ID"])
+        except Exception as e:
+            traceback.print_exc()
+        else:
+            if not self.players[guild.id]["FIRST"]:
+                await message.delete()
+        finally:
+            print('hi')
+            if not self.players[guild.id]["FIRST"]:
+                print('b')
+                message = await channel.send(embed=await self.generateNowPlayingEmbed(guild, player))
+                self.players[guild.id] = {"CHANNEL": channel.id, "MESSAGE_ID": message.id, "FIRST": False}
 
     async def progress_update(self, event):
         if isinstance(event, lavalink.events.PlayerUpdateEvent):
