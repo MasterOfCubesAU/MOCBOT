@@ -18,8 +18,6 @@ import random
 from functools import reduce
 import requests
 
-import traceback
-
 
 class Music(commands.Cog):
 
@@ -50,46 +48,40 @@ class Music(commands.Cog):
     def interaction_ensure_voice(f):
         @functools.wraps(f)
         async def callback(self, interaction: discord.Interaction, *args, **kwargs) -> None:
-            await self.ensure_voice(await discord.ext.commands.Context.from_interaction(interaction))
+            await self.ensure_voice(interaction)
             await f(self, interaction, *args, **kwargs)
         return callback
 
-    async def ensure_voice(self, ctx):
+    async def ensure_voice(self, interaction):
         """ This check ensures that the bot and command author are in the same voice channel. """
-        if ctx.guild is None:
+        if interaction.guild is None:
             raise commands.CommandInvokeError(
                 'This command can only be used inside a Discord server.')
         #  This is essentially the same as `@commands.guild_only()`
         #  except it saves us repeating ourselves (and also a few lines)
 
-        should_connect = ctx.command.name in ('play')
+        should_connect = interaction.command.name in ('play')
 
-        if not ctx.author.voice or not ctx.author.voice.channel:
-            # Our cog_command_error handler catches this and sends it to the voice channel.
-            # Exceptions allow us to "short-circuit" command invocation via checks so the
-            # execution state of the command goes no further.
-            raise commands.CommandInvokeError('Join a voice channel first.')
+        if not interaction.user.voice or not interaction.user.voice.channel:
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f'Join a voice channel first.', None), ephemeral=True)
 
-        v_client = ctx.voice_client
+        v_client = interaction.guild.voice_client
         if not v_client:
             if not should_connect:
-                raise commands.CommandInvokeError(
-                    "MOCBOT isn't connected to a voice channel.")
+                await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f'MOCBOT is not connected to a voice channel.', None), ephemeral=True)
 
-            permissions = ctx.author.voice.channel.permissions_for(ctx.me)
+            permissions = interaction.user.voice.channel.permissions_for(interaction.guild.me)
 
             if not permissions.connect or not permissions.speak:  # Check user limit too?
-                raise commands.CommandInvokeError(
-                    'I need the `CONNECT` and `SPEAK` permissions.')
+                await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f'Please provide MOCBOT with the CONNECT and SPEAK permissions.', None), ephemeral=True)
 
-            await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
+            await interaction.user.voice.channel.connect(cls=LavalinkVoiceClient)
         else:
-            if v_client.channel.id != ctx.author.voice.channel.id:
-                raise commands.CommandInvokeError(
-                    'You need to be in my voice channel.')
+            if v_client.channel.id != interaction.user.voice.channel.id:
+                await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f'You need to be in my voice channel to execute that command.', None), ephemeral=True)
 
-        player = self.bot.lavalink.player_manager.create(ctx.guild.id)
-        player.store('channel', ctx.channel.id)
+        player = self.bot.lavalink.player_manager.create(interaction.guild.id)
+        player.store('channel', interaction.channel.id)
         await player.set_volume(10)
 
     async def track_hook(self, event):
@@ -188,6 +180,7 @@ class Music(commands.Cog):
         query="A search query or URL to the media."
     )
     @interaction_ensure_voice
+    @app_commands.guilds(DEV_GUILD)
     async def play(self, interaction: discord.Interaction, query: str):
         """ Searches and plays a song from a given query. """
         await interaction.response.defer(thinking=True)
@@ -235,7 +228,8 @@ class Music(commands.Cog):
             embed.set_image(url=await self.getMediaThumbnail(player.queue[-1].source_name, player.queue[-1].identifier))
             embed.add_field(name="POSITION", value=len(
                 player.queue), inline=True)
-            embed.add_field(name="QUEUE TIME", value=await self.formatDuration(reduce(lambda a, b: a + b, [song.duration if not song.stream else 0 for song in player.queue])), inline=True)
+            duration = reduce(lambda a, b: a + b, [song.duration if not song.stream else 0 for song in player.queue])
+            embed.add_field(name="QUEUE TIME", value=await self.formatDuration(duration) if (duration < 86400000) else '>24h', inline=True)
             embed.set_footer(text=f"Requested by {interaction.user}")
             await interaction.followup.send(embed=embed)
             await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
@@ -480,6 +474,30 @@ class Music(commands.Cog):
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Successfully removed {end - start + 1} track{'' if end - start + 1 == 1 else 's'} from the queue.", None))
             return await self.delay_delete(interaction, 5)
 
+    @app_commands.command(name="move", description="Moves the given track to another position in the queue.")
+    @app_commands.describe(
+        source="The track number to move",
+        destination="The position in the queue to move to"
+    )
+    async def move(self, interaction: discord.Interaction, source: int, destination: int):
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+
+        if player is None or player.current is None:
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The move command requires media to be playing first.", None))
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+        if len(player.queue) < 2:
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"There are less than two songs in the queue.", None))
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+        if source == destination: 
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"You can only move songs to a different position in the queue.", None))
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+        if source < 1 or source > len(player.queue) or destination < 1 or destination > len(player.queue):
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Please enter valid positions in the queue. There {'is' if len(player.queue) == 1 else 'are'} **{len(player.queue)}** track{'' if len(player.queue) == 1 else 's'} in the queue.", None))
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+
+        player.queue.insert(destination - 1, track:=player.queue.pop(source - 1))
+        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Successfully moved track [{track.title}]({track.uri}) to position **{destination}** in the queue.", None))
+        return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
 async def setup(bot):
     await bot.add_cog(Music(bot))
