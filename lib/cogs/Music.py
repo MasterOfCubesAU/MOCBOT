@@ -147,17 +147,14 @@ class Music(commands.Cog):
         channel = guild.get_channel(self.players[guild.id]["CHANNEL"])
         try:
             message = await channel.fetch_message(self.players[guild.id]["MESSAGE_ID"])
-        except Exception as e:
-            traceback.print_exc()
+        except discord.errors.NotFound:
+            pass
         else:
-            if not self.players[guild.id]["FIRST"]:
-                await message.delete()
+            await message.delete()
         finally:
-            print('hi')
-            if not self.players[guild.id]["FIRST"]:
-                print('b')
-                message = await channel.send(embed=await self.generateNowPlayingEmbed(guild, player))
-                self.players[guild.id] = {"CHANNEL": channel.id, "MESSAGE_ID": message.id, "FIRST": False}
+            message = await channel.send(embed=await self.generateNowPlayingEmbed(guild, player))
+            self.players[guild.id] = {"CHANNEL": channel.id, "MESSAGE_ID": message.id}
+          
 
     async def progress_update(self, event):
         if isinstance(event, lavalink.events.PlayerUpdateEvent):
@@ -253,7 +250,7 @@ class Music(commands.Cog):
             await interaction.followup.send(embed=embed)
             message = await interaction.original_response()
             self.players[interaction.guild.id] = {
-                "CHANNEL": interaction.channel.id, "MESSAGE_ID": message.id, "FIRST": True}
+                "CHANNEL": interaction.channel.id, "MESSAGE_ID": message.id}
 
         # We don't want to call .play() if the player is playing as that will effectively skip
         # the current track.
