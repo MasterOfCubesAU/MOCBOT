@@ -189,7 +189,6 @@ class Music(commands.Cog):
         query="A search query or URL to the media."
     )
     @interaction_ensure_voice
-    @app_commands.guilds(DEV_GUILD)
     async def play(self, interaction: discord.Interaction, query: str):
         """ Searches and plays a song from a given query. """
         await interaction.response.defer(thinking=True)
