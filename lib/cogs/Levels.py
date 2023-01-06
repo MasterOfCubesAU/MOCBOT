@@ -183,8 +183,6 @@ class Levels(commands.Cog):
                 if high_difference:
                     for x in high_difference:
                         await member.remove_roles(Object(id=int(x)), reason="Role Adjustment")
-    
-    def dict_to_int(self, keys):
 
     async def generate_level_up_card(self, member):
         data = await self.get_xp_data(member)
