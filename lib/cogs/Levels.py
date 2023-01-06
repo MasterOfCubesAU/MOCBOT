@@ -89,7 +89,7 @@ class Levels(commands.Cog):
             return None
         guild_xp.sort(key=lambda user: int(user["XP"]), reverse=True)
         guild_member_ids = list(map(lambda member: member.id, member.guild.members))
-        return [id for id in map(lambda user: int(user["UserID"]), guild_xp) if id in guild_member_ids].index(member.id)
+        return [id for id in map(lambda user: int(user["UserID"]), guild_xp) if id in guild_member_ids].index(member.id) + 1
 
     async def add_xp(self, member, newData: object, oldData=None):
         data = oldData or await self.get_xp_data(member)

@@ -424,10 +424,11 @@ class Lobbies(commands.Cog):
     @app_commands.command(name="lobby", description="Open/manage a MOCBOT lobby.")
     @ensure_lobbies()
     async def lobby(self, interaction: discord.Interaction):
+        await interaction.response.defer(thinking=True)
         guild = self.bot.get_guild(interaction.guild.id)
         user = guild.get_member(interaction.user.id)
         if user.status == Status.offline:
-            return await interaction.response.send_message(embed=interaction.client.create_embed("MOCBOT LOBBIES", f"It appears that you are offline. Please change your status to any other status before interacting with the Lobby system. Please note that any lobby you create will be deleted if you are offline.", None), ephemeral=True)
+            return await interaction.followup.send(embed=interaction.client.create_embed("MOCBOT LOBBIES", f"It appears that you are offline. Please change your status to any other status before interacting with the Lobby system. Please note that any lobby you create will be deleted if you are offline.", None), ephemeral=True)
         view=LobbyPrompt(timeout=60, interaction=interaction)
         lobby_data = LobbyPrompt.get_lobby_details(interaction.user)
         embed = None
@@ -443,14 +444,14 @@ class Lobbies(commands.Cog):
                 embed = interaction.client.create_embed("MOCBOT LOBBIES", f"It appears you a member of **{lobby_data.get('LobbyName', None)}**", None)
         else:
             embed = self.bot.create_embed("MOCBOT LOBBIES", "MOCBOT lobbies allows users to create their own private parties. Create a lobby to enjoy private sessions!", None)
-        await interaction.response.send_message(embed=embed, view=view)
+        await interaction.followup.send(embed=embed, view=view)
 
     @lobby.error
     async def lobby_error(self, interaction, error):
         if isinstance(error, app_commands.CheckFailure):
             view=View()
             view.add_item(discord.ui.Button(label="Configure modules",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/{interaction.guild.id}/manage"))
-            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT ERROR", "This server does not have the lobby feature enabled.", 0xFF0000), view=view)
+            await interaction.followup.send(embed=self.bot.create_embed("MOCBOT ERROR", "This server does not have the lobby feature enabled.", 0xFF0000), view=view)
 
 async def setup(bot):
     await bot.add_cog(Lobbies(bot))
