@@ -143,7 +143,7 @@ class Levels(commands.Cog):
 
     def check_level_up_perms(self, guild_id):
         data = API.get(f'/settings/{guild_id}')
-        return bool(int(data.get("XP_LVL_UP_MSG", None))) if data is not None else False
+        return bool(int(data.get("XPLevelUpMessage", None))) if data is not None else False
 
     async def level_integrity(self, old_data=None, member=None):
         data = old_data or await self.get_xp_data(member)
