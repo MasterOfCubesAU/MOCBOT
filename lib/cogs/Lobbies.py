@@ -17,9 +17,6 @@ class LobbyPrompt(View):
         self.interaction = interaction
         self.updateOptions()
 
-    # def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item):
-    #     traceback.print_exc()
-
     async def on_timeout(self) -> None:
         await self.interaction.delete_original_response()
 
@@ -257,7 +254,6 @@ class LobbyPrompt(View):
             if len(members_to_add) != 0:
                 API.post(f'/lobby/{self.interaction.guild.id}/{lobby_details.get("LeaderID")}/users', members_to_add)
             await self.updateView()
-            # await interaction.followup.send(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"Invited {' '.join([x.mention for x in msg.mentions])}", None), ephemeral=True)
 
     async def kick_button_callback(self, interaction:discord.Interaction):
         lobby_details = await self.check_lobby_exists(interaction)
@@ -286,7 +282,6 @@ class LobbyPrompt(View):
                 except (discord.errors.HTTPException, AttributeError):
                     pass 
             await self.updateView()
-            # await interaction.followup.send(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"Kicked {' '.join([x.mention for x in msg.mentions])}", None), ephemeral=True)
 
     async def transfer_button_callback(self, interaction:discord.Interaction):
         lobby_details = await self.check_lobby_exists(interaction)
@@ -354,7 +349,6 @@ class LobbyCreation(Modal, title='Lobby Creation'):
         super().__init__()
 
     async def on_submit(self, interaction: discord.Interaction):
-        # await self.LobbyPrompt.delete_prompt()
         await interaction.response.defer(thinking=False)
         self.LobbyPrompt.clear_items()
         await self.LobbyPrompt.updateView(interaction.client.create_embed("MOCBOT LOBBIES", f"Creating lobby **{self.lobby_name.value}**", None))
@@ -362,9 +356,7 @@ class LobbyCreation(Modal, title='Lobby Creation'):
         await asyncio.sleep(1)
         self.LobbyPrompt.updateOptions()
         await self.LobbyPrompt.updateView()
-        # await interaction.followup.send(embed=self.LobbyPrompt.getEmbed(), view=self.LobbyPrompt)
-        # self.LobbyPrompt.interaction = interaction
-    
+
 class LobbyRename(Modal, title='Rename Lobby'):
     lobby_name = TextInput(label='Lobby Name')
 

@@ -162,7 +162,7 @@ class Levels(commands.Cog):
             res = API.get(f"/roles/{member.guild.id}")
             role_map = res.get("LevelRoles", None) if res is not None else None
             if role_map != None:
-                role_map = self.dict_to_int(role_map)
+                role_map = {int(k): int(v) for k, v in role_map.items()}
                 member_roles = member.roles
                 low_difference = [
                     role_map[x]
@@ -185,7 +185,6 @@ class Levels(commands.Cog):
                         await member.remove_roles(Object(id=int(x)), reason="Role Adjustment")
     
     def dict_to_int(self, keys):
-        return {int(k): int(v) for k, v in keys.items()}
 
     async def generate_level_up_card(self, member):
         data = await self.get_xp_data(member)
