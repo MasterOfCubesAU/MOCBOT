@@ -275,8 +275,8 @@ class LobbyPrompt(View):
             lobby_users = API.get(f'/lobby/{self.interaction.guild.id}/{lobby_details.get("LeaderID")}/users')
             await self.updateView(self.interaction.client.create_embed("MOCBOT LOBBIES", f"It appears you are the lobby leader for **{lobby_details.get('LobbyName')}**.\n\n **MEMBERS:**\nRemoving Users...", None))
             for member in msg.mentions:
-                if (not LobbyPrompt.is_lobby_user(member, lobby_details, lobby_users)) or LobbyPrompt.is_lobby_leader(member, lobby_details):
-                    pass
+                if (not LobbyPrompt.is_lobby_user(member, lobby_details, lobby_users)) or LobbyPrompt.is_lobby_leader(member, lobby_details) or member.bot:
+                    continue
                 try:
                     await self.remove_user(member, lobby_details)
                 except (discord.errors.HTTPException, AttributeError):
