@@ -22,7 +22,7 @@ class AFK(commands.Cog):
     def add_user(self, data: object):
         route = f'/afk/{data["guild_id"]}/{data["user_id"]}'
         newData = API.post(route, {"MessageID": data["msg_id"], "ChannelID": data["channel_id"], "OldName": data["old_name"], "Reason": data["reason"]})
-        self.cache[f'{data["guild_id"]}/{data["user_id"]}'] = {key: value for key, value in newData if key not in ["guild_id", "user_id"]}
+        self.cache[f'{data["guild_id"]}/{data["user_id"]}'] = {key: value for key, value in newData.items() if key not in ["UserID", "GuildID"]}
     
     def remove_user(self, data: object):
         route = f'/afk/{data["guild_id"]}/{data["user_id"]}'
