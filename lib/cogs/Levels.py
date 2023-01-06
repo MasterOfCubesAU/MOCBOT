@@ -1,8 +1,11 @@
 from discord.ext import commands, tasks
-from discord.ui import Button, View
+from discord.ui import View
 from discord import app_commands, File, Object, Status
-from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
-from typing import Literal, Union, Optional
+from utils.APIHandler import API
+from lib.bot import config, DEV_GUILD
+from requests.exceptions import HTTPError
+from expiringdict import ExpiringDict
+
 import discord
 import logging
 
@@ -12,8 +15,7 @@ import asyncio
 from io import BytesIO
 import datetime
 import math
-import json
-
+from typing import Optional
 
 class Levels(commands.Cog):
 
@@ -25,11 +27,10 @@ class Levels(commands.Cog):
         self.messages_xp = 4
         self.voice_xp_rate = 48 # per hour
         self.logger = logging.getLogger(__name__)
+        self.cache = ExpiringDict(max_len=1000, max_age_seconds=60)
 
     async def cog_load(self):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
-        await self.level_integrity()
-        await self.update_roles()
         self.voice_xp.start()
 
     async def cog_unload(self):
@@ -46,72 +47,89 @@ class Levels(commands.Cog):
             return 0
     
     async def xp_away(self, member):
-        if await self.is_ranked(member):
-            current_xp = await self.get_xp(member)
-            current_level = await self.get_level(member)
-            required_xp = 6 * ((current_level + 1)) ** 2 + 94
-            xp_difference = required_xp - current_xp
+        data = await self.get_xp_data(member)
+        if data is not None:
+            required_xp = 6 * ((data.get("Level", None) + 1)) ** 2 + 94
+            xp_difference = required_xp - data.get("XP", None)
             return xp_difference
 
-    async def is_ranked(self, member):
-        return bool(MOC_DB.field("SELECT UserID FROM XP WHERE (GuildID = %s AND UserID = %s)", member.guild.id, member.id))
-    async def get_xp(self, member):
-        return MOC_DB.field("SELECT XP FROM XP WHERE (GuildID = %s AND UserID = %s)", member.guild.id, member.id)
-    async def get_level(self, member):
-        return MOC_DB.field("SELECT Level FROM XP WHERE (GuildID = %s AND UserID = %s)", member.guild.id, member.id)
-    async def get_rank(self, member):
-        db_lb = MOC_DB.records("SELECT UserID FROM `XP` WHERE GuildID = %s ORDER BY `XP`.`XP` DESC", member.guild.id)
-        if(db_lb):
-            member_dict = {}
-            counter = 1
-            for row in db_lb:
-                if row[0] in [x.id for x in member.guild.members]:
-                    member_dict[counter] = row[0]
-                    counter += 1
-            member_dict = {v: k for k, v in member_dict.items()}
-            return member_dict[member.id]
-        return None
-
-    async def add_xp(self, member, amount: int):
-        if await self.is_ranked(member):
-            if max(int(await self.get_xp(member) + amount), 0) != 0:
-                MOC_DB.execute("UPDATE XP SET XP = %s WHERE UserID = %s AND GuildID = %s", int(await self.get_xp(member) + amount), member.id, member.guild.id)
+    async def get_xp_data(self, member):
+        data = self.cache.get(f'{member.guild.id}/{member.id}')
+        if data:
+            return data
+        try:
+            data = API.get(f'/xp/{member.guild.id}/{member.id}')
+        except HTTPError as e:
+            if e.response.status_code == 404:
+                return None 
             else:
-                MOC_DB.execute("DELETE FROM XP WHERE GuildID = %s AND UserID = %s", member.guild.id, member.id)
+                raise e
         else:
-            if amount > 0:
-                MOC_DB.execute("INSERT INTO XP (GuildID, UserID, XP) VALUES (%s, %s, %s)", member.guild.id, member.id, int(amount))
-        level_up_required = await self.level_integrity(member)
+            self.update_xp_cache(member, data)
+            return data
+
+    def update_xp_data(self, member, data, route):
+        if route == 'PATCH':
+            res = API.patch(f'/xp/{member.guild.id}/{member.id}', data)
+        elif route == 'POST':
+            res = API.post(f'/xp/{member.guild.id}/{member.id}', data)
+        self.update_xp_cache(member, res)
+        return res
+    
+    def update_xp_cache(self, member, data):
+        self.cache[f'{member.guild.id}/{member.id}'] = {k: v for k, v in data.items() if k not in ["guild_id", "user_id"]}
+
+    def delete_xp_data(self, member):
+        API.delete(f'/xp/{member.guild.id}/{member.id}')
+        del self.cache[f'{member.guild.id}/{member.id}']
+
+    async def get_rank(self, member):
+        guild_xp = API.get(f'/xp/{member.guild.id}')
+        if not guild_xp:
+            return None
+        guild_xp.sort(key=lambda user: int(user["XP"]), reverse=True)
+        guild_member_ids = list(map(lambda member: member.id, member.guild.members))
+        return [id for id in map(lambda user: int(user["UserID"]), guild_xp) if id in guild_member_ids].index(member.id)
+
+    async def add_xp(self, member, newData: object, oldData=None):
+        data = oldData or await self.get_xp_data(member)
+        xp = data.get("XP", None) if data is not None else None
+        new_xp = newData.get("XP", None)
+        if xp is not None:
+            if max(xp + new_xp, 0) != 0:
+                newData["XP"] = new_xp + xp
+                newData = self.update_xp_data(member, newData, 'PATCH')
+            else:
+                return self.delete_xp_data(member)
+        else:
+            if new_xp > 0:
+                newData = self.update_xp_data(member, newData, 'POST')
+            else:
+                return
+                
+        level_up_required = await self.level_integrity(newData, member)
         await self.update_roles(member)
         return level_up_required
 
     async def set_xp(self, member, value: int):
         if value > 0:
-            current_xp = await self.get_xp(member)
-            await self.add_xp(member, value - (current_xp if current_xp is not None else 0))
+            data = await self.get_xp_data(member)
+            current_xp = data.get("XP") if data is not None else 0
+            await self.add_xp(member, {"XP": value - current_xp}, data)
         else:
-            MOC_DB.execute("DELETE FROM XP WHERE GuildID = %s AND UserID = %s", member.guild.id, member.id)
+            self.delete_xp_data(member)
             await self.update_roles(member)
 
     async def message_xp(self, message):
-        xplock = MOC_DB.field(
-            "SELECT XPLock FROM XP WHERE UserID = %s AND GuildID = %s",
-            message.author.id,
-            message.guild.id,
-        )
-        if xplock:
-            if datetime.datetime.now() > datetime.datetime.fromisoformat(str(xplock)):
-                if await self.add_xp(message.author, self.messages_xp * self.global_multiplier) and await self.checkLevelUpPerms(message.guild.id):
+        res = await self.get_xp_data(message.author)
+        xp_lock = res.get("XPLock", None) if res is not None else None
+        if xp_lock:
+            if datetime.datetime.now() > datetime.datetime.fromtimestamp(xp_lock):
+                newData = {"XP": self.messages_xp * self.global_multiplier, "XPLock": (datetime.datetime.now() + datetime.timedelta(seconds=60)).timestamp() }
+                if await self.add_xp(message.author, newData, res) and self.check_level_up_perms(message.guild.id):
                     await message.channel.send(message.author.mention, file=await self.generate_level_up_card(message.author))
-                MOC_DB.execute(
-                    "UPDATE XP SET XPLock = %s WHERE UserID = %s AND GuildID = %s",
-                    (datetime.datetime.now() + datetime.timedelta(seconds=60)).isoformat(),
-                    message.author.id,
-                    message.guild.id,
-                )
         else:
-            await self.add_xp(message.author, self.messages_xp * self.global_multiplier)
-
+            await self.add_xp(message.author, {"XP": self.messages_xp * self.global_multiplier}, res)
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -123,32 +141,28 @@ class Levels(commands.Cog):
         ):
             await self.message_xp(message)
 
-    def keystoint(self, x):
-        return {int(k): v for k, v in x.items()}
+    def check_level_up_perms(self, guild_id):
+        data = API.get(f'/settings/{guild_id}')
+        return bool(int(data.get("XPLevelUpMessage", None))) if data is not None else False
 
-    async def checkLevelUpPerms(self, guild_id):
-        return bool(int(MOC_DB.field(f"SELECT XP_LVL_UP_MSG FROM Guild_Settings WHERE GuildID = {guild_id}")))
-
-    async def level_integrity(self, member=None):
-        if member and await self.is_ranked(member):
-            correct_level = await self.calculate_correct_level(await self.get_xp(member))
-            current_level = await self.get_level(member)
+    async def level_integrity(self, old_data=None, member=None):
+        data = old_data or await self.get_xp_data(member)
+        if member and data is not None:
+            correct_level = await self.calculate_correct_level(data.get("XP", None))
+            current_level = data.get("Level", None)
             if current_level != correct_level:
-                MOC_DB.execute("UPDATE XP SET Level = %s WHERE UserID = %s AND GuildID = %s", correct_level, member.id, member.guild.id)
+                self.update_xp_data(member, {"Level": correct_level}, 'PATCH')
                 if current_level < correct_level:
                    return True               
-        else:
-            data = MOC_DB.records("SELECT * FROM XP")
-            for record in data:
-                correct_level = await self.calculate_correct_level(record[2])
-                if record[3] != correct_level:
-                    MOC_DB.execute("UPDATE XP SET Level = %s WHERE UserID = %s AND GuildID = %s", correct_level, record[1], record[0])
 
-    async def update_roles(self, member=None):
+    async def update_roles(self, member=None, data=None):
+        xp_data = data or await self.get_xp_data(member)
+        member_level = xp_data.get("Level", None) if xp_data is not None else 0
         if member:
-            if (role_map := MOC_DB.field("SELECT LevelRoles FROM Roles WHERE GuildID = %s", member.guild.id)) != None:
-                role_map = self.keystoint(json.loads(role_map))
-                member_level = await self.get_level(member) or 0
+            res = API.get(f"/roles/{member.guild.id}")
+            role_map = res.get("LevelRoles", None) if res is not None else None
+            if role_map != None:
+                role_map = {int(k): int(v) for k, v in role_map.items()}
                 member_roles = member.roles
                 low_difference = [
                     role_map[x]
@@ -169,28 +183,24 @@ class Levels(commands.Cog):
                 if high_difference:
                     for x in high_difference:
                         await member.remove_roles(Object(id=int(x)), reason="Role Adjustment")
-        else:
-            data = MOC_DB.records("SELECT * FROM Roles")
-            for record in data:
-                if (guild := self.bot.get_guild(record[0])) != None:
-                    for member in guild.members:
-                        await self.update_roles(member)
+    
+    def dict_to_int(self, keys):
 
     async def generate_level_up_card(self, member):
+        data = await self.get_xp_data(member)
+        level = data.get("Level", None)
+
         template = Image.open("./assets/levels/template.jpg")
         raw_avatar = requests.get(member.display_avatar.url, stream=True)
         avatar = Image.open(raw_avatar.raw).convert("RGBA")
         canvas = ImageDraw.Draw(template)
-         
         canvas.text((329, 90), str("YOU HAVE "), fill="#ffffff", font=ImageFont.truetype("./assets/fonts/Bebas.ttf", size=75))
-
         x_offset = ImageFont.truetype("./assets/fonts/Bebas.ttf", size=75).getsize(str("YOU HAVE "))[0]
         canvas.text((329 + x_offset, 90),"LEVELLED UP!",fill="#dc3545",font=ImageFont.truetype("./assets/fonts/Bebas.ttf", size=75))
-        canvas.text((329, 179),"LEVEL {}".format(await self.get_level(member)),fill="#dc3545",font=ImageFont.truetype("./assets/fonts/Bebas.ttf", size=50))
+        canvas.text((329, 179),"LEVEL {}".format(level),fill="#dc3545",font=ImageFont.truetype("./assets/fonts/Bebas.ttf", size=50))
 
-        x_offset =  ImageFont.truetype("./assets/fonts/Bebas.ttf", size=50).getsize("LEVEL {}".format(await self.get_level(member)))[0]
+        x_offset =  ImageFont.truetype("./assets/fonts/Bebas.ttf", size=50).getsize("LEVEL {}".format(level))[0]
         canvas.text((329+ x_offset + 10, 179,),"NEXT LEVEL {} XP AWAY".format(await self.xp_away(member)),fill="rgb(80, 80, 80)",font=ImageFont.truetype("./assets/fonts/Bebas.ttf", size=50))
-        
         avatar = avatar.resize((225, 225), 0)
         template.paste(avatar, (60, 40), mask=avatar)
         tempFile = BytesIO()
@@ -199,6 +209,8 @@ class Levels(commands.Cog):
         return File(tempFile, "level_up.png")
 
     async def generate_rank_card(self, member):
+        XP_DATA = await self.get_xp_data(member)
+
         template = Image.open("./assets/levels/template.jpg")
         raw_avatar = requests.get(member.display_avatar.url, stream=True)
         avatar = Image.open(raw_avatar.raw).convert("RGBA")
@@ -213,9 +225,9 @@ class Levels(commands.Cog):
         # Base XP bar
         canvas.rectangle([(xp_bar_start[0], xp_bar_start[1]), (xp_bar_start[0] + max_length, xp_bar_start[1] + 10)], fill="#1f2124")
         
-        if await self.is_ranked(member):
-            user_level = await self.get_level(member)
-            user_xp = await self.get_xp(member)
+        if XP_DATA:
+            user_level = XP_DATA["Level"]
+            user_xp = XP_DATA["XP"]
             user_rank = await self.get_rank(member)
             if user_level != 0:
                 difference =  await Levels.get_required_xp(user_level + 1) - await Levels.get_required_xp(user_level)
@@ -266,7 +278,7 @@ class Levels(commands.Cog):
     async def voice_xp(self):
         for guild in self.bot.guilds:
             for channel in guild.voice_channels:
-                real_members = [member for member in channel.members if not member.bot and not (member.voice.self_mute or member.voice.self_deaf)]
+                real_members = [member for member in channel.members if not member.bot and not (member.voice.self_mute or member.voice.self_deaf)] 
                 if len(real_members) >= 2:
                     if len(real_members) > 2:
                         local_multiplier = 0.125 * (len(real_members) - 2)
@@ -274,38 +286,34 @@ class Levels(commands.Cog):
                         local_multiplier = 0
                     xp = round(((local_multiplier + 1) * (self.voice_xp_rate/(60/self.voiceXPInterval)))) * self.global_multiplier
                     for member in real_members:
-                        if member.id not in config["DEVELOPERS"] and (member.status == Status.online):
-                            if await self.is_ranked(member):
-                                vc_xplock = MOC_DB.field("SELECT VC_XPLock FROM XP WHERE UserID = %s AND GuildID = %s", member.id, member.guild.id)
-                                if(datetime.datetime.now() > datetime.datetime.fromisoformat(str(vc_xplock))):
-                                    await self.add_xp(member, xp)
-                                    MOC_DB.execute("UPDATE XP SET VC_XPLock = %s WHERE UserID = %s AND GuildID = %s",(datetime.datetime.now() + datetime.timedelta(minutes=9)).isoformat(), member.id, member.guild.id)
+                        if member.status == Status.online:
+                            data = await self.get_xp_data(member)
+                            if data is not None:
+                                if(datetime.datetime.now() > datetime.datetime.fromtimestamp(data.get("VoiceChannelXPLock", None))):
+                                    await self.add_xp(member, {"XP": xp, "VoiceChannelXPLock": (datetime.datetime.now() + datetime.timedelta(minutes=5)).timestamp()}, data)
                             else:
-                                await self.add_xp(member, xp)
+                                await self.add_xp(member, {"XP": xp})
 
     # Commands
     @app_commands.command(name="leaderboard", description="Displays the server leaderboard.")
-  #  @app_commands.guilds(DEV_GUILD)
     async def invite(self, interaction: discord.Interaction):
         view=View()
         view.add_item(discord.ui.Button(label="View leaderboard",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/{interaction.guild.id}/leaderboard"))
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT LEVELS", f"Use the button below to view the server leaderboard.", None), view=view)
 
     @app_commands.command(name="rank", description="Get your XP.")
-  #  @app_commands.guilds(DEV_GUILD)
     @app_commands.describe(
         member="The member to search for."
     )
     async def rank(self, interaction: discord.Interaction, member: Optional[discord.Member]):
         member = member if member else interaction.user
-        await interaction.response.send_message(file=await self.generate_rank_card(member))
+        await interaction.response.defer(ephemeral=False, thinking=True)
+        await interaction.followup.send(file=await self.generate_rank_card(member))
         await asyncio.sleep(10)
         await interaction.delete_original_response()
 
-
     # XP Commands
     XPGroup = app_commands.Group(name="xp", description="Manages user XP.")
-
     @XPGroup.command(name="add", description="Adds XP to a user.")
     @app_commands.checks.has_permissions(manage_guild=True)
     @app_commands.describe(
@@ -313,9 +321,10 @@ class Levels(commands.Cog):
         member="The member to add xp to."
     )
     async def add(self, interaction: discord.Interaction, amount: int, member: discord.Member):
-        await self.add_xp(member, amount)
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        await self.add_xp(member, {"XP": amount})
+        await interaction.followup.send(embed=self.bot.create_embed("MOCBOT LEVELS", f"**{member.display_name}** has successfully been given **{amount} XP**.", None))
         await member.send(embed=self.bot.create_embed("MOCBOT LEVELS", f"**{interaction.user}** has given **{amount} XP** to you in the **{interaction.guild.name}** server.", None))
-        await interaction.response.send_message(f"**{amount} XP** has successfully been added to user {member.mention}.", ephemeral=True)
     
     @XPGroup.command(name="remove", description="Removes XP from a user.")
     @app_commands.checks.has_permissions(manage_guild=True)
@@ -324,9 +333,10 @@ class Levels(commands.Cog):
         member="The member to remove xp from."
     )
     async def remove(self, interaction: discord.Interaction, amount: int, member: discord.Member):
-        await self.add_xp(member, -amount)
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        await self.add_xp(member, {"XP": -amount})
+        await interaction.followup.send(embed=self.bot.create_embed("MOCBOT LEVELS", f"**{member.display_name}** has successfully had **{amount} XP** removed from them.", None))
         await member.send(embed=self.bot.create_embed("MOCBOT LEVELS", f"**{interaction.user}** has removed **{amount} XP** from you in the **{interaction.guild.name}** server.", None))
-        await interaction.response.send_message(f"**{amount} XP** has successfully been removed from user(s) {member.mention}.", ephemeral=True)
     
     @XPGroup.command(name="set", description="Sets the XP of a user.")
     @app_commands.checks.has_permissions(manage_guild=True)
@@ -335,10 +345,10 @@ class Levels(commands.Cog):
         member="The member to have their XP set."
     )
     async def set(self, interaction: discord.Interaction, value: int, member: discord.Member):
+        await interaction.response.defer(ephemeral=True, thinking=True)
         await self.set_xp(member, value)
+        await interaction.followup.send(embed=self.bot.create_embed("MOCBOT LEVELS", f"**{member.display_name}** has successfully had their XP set to **{value} XP**.", None))
         await member.send(embed=self.bot.create_embed("MOCBOT LEVELS", f"**{interaction.user}** has set your XP in the **{interaction.guild.name}** server to **{value} XP**.", None))
-        await interaction.response.send_message(f"The user {member.mention} successfully had their XP set to **{value}**", ephemeral=True)
-
 
 async def setup(bot):
     await bot.add_cog(Levels(bot))

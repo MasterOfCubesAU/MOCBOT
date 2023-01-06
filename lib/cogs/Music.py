@@ -1,7 +1,7 @@
 from discord.ext import commands
 from discord import app_commands
-from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB, MOC_GUILD
-from typing import Literal, Union, Optional
+from lib.bot import config
+from typing import Literal
 import discord
 import logging
 

@@ -1,21 +1,21 @@
 from discord.ext import commands, tasks
-from discord.ui import Button, View, Modal, TextInput, Select
-from discord import app_commands, Interaction, NotFound, PermissionOverwrite, Object, Status
-from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
-from typing import Literal, Union, Optional
+from discord.ui import Button, View, Modal, TextInput
+from discord import app_commands, Interaction, NotFound, PermissionOverwrite, Status
+from requests.exceptions import HTTPError
+from lib.bot import DEV_GUILD
+
+from utils.APIHandler import API
 import discord
 import logging
 import asyncio
-
-from random import randint
-
+import traceback
 class LobbyPrompt(View):
     def __init__(self, *, timeout=180, interaction: discord.Interaction):
         super().__init__(timeout=timeout)
-        self.lobby_category = interaction.client.get_channel(MOC_DB.field("SELECT LOBBY_CATEGORY FROM Guild_Settings WHERE GuildID = %s", interaction.guild.id))
+        settings = API.get(f'/settings/{interaction.guild.id}')
+        self.lobby_category = interaction.guild.get_channel(int(settings.get("LobbyCategory") if settings is not None else None))
         self.interaction = interaction
         self.updateOptions()
-
 
     async def on_timeout(self) -> None:
         await self.interaction.delete_original_response()
@@ -24,31 +24,30 @@ class LobbyPrompt(View):
         return interaction.user and interaction.user.id == self.interaction.user.id
 
     def getEmbed(self):
-        if LobbyPrompt.is_lobby_leader(self.interaction.user):
-            lobby_data = LobbyPrompt.get_lobby_details(self.interaction.user)
-            if MOC_DB.column('SELECT UserID FROM LobbyUsers WHERE LobbyName = %s AND GuildID = %s', lobby_data[1], self.interaction.guild.id):
-                embed = self.interaction.client.create_embed("MOCBOT LOBBIES", f"It appears you are the lobby leader for **{lobby_data[1]}**", None)
-                embed.add_field(name="MEMBERS:", value='\n'.join([self.interaction.guild.get_member(x).mention for x in MOC_DB.column('SELECT UserID FROM LobbyUsers WHERE LobbyName = %s AND GuildID = %s', lobby_data[1], self.interaction.guild.id)]), inline=True)
+        lobby_data = LobbyPrompt.get_lobby_details(self.interaction.user)
+        if LobbyPrompt.is_lobby_leader(self.interaction.user, lobby_data):
+            lobby_users = API.get(f'/lobby/{self.interaction.guild.id}/{self.interaction.user.id}/users')
+            if lobby_users:
+                embed = self.interaction.client.create_embed("MOCBOT LOBBIES", f"It appears you are the lobby leader for **{lobby_data.get('LobbyName')}**", None)
+                embed.add_field(name="MEMBERS:", value='\n'.join([self.interaction.guild.get_member(int(x)).mention for x in lobby_users]), inline=True)
             else:
-                embed = self.interaction.client.create_embed("MOCBOT LOBBIES", f"It appears you are the lobby leader for **{lobby_data[1]}**\nYour lobby is currently empty. Invite people with the button below", None)
+                embed = self.interaction.client.create_embed("MOCBOT LOBBIES", f"It appears you are the lobby leader for **{lobby_data.get('LobbyName')}**\nYour lobby is currently empty. Invite people with the button below.", None)
         else:
             embed = self.interaction.client.create_embed("MOCBOT LOBBIES", "MOCBOT lobbies allows users to create their own private parties. Create a lobby to enjoy private sessions!", None)
         return embed
 
-    async def invite_user(self, member, lobby):
-        lobby_data = LobbyPrompt.get_lobby_details(self.interaction.user)
-        await member.add_roles(member.guild.get_role(lobby_data[4]), reason=f"{member} added to {lobby}")
-        embed = self.interaction.client.create_embed("MOCBOT LOBBIES", f"You have been invited to join **{lobby}**", None)
-        embed.add_field(name="LEADER:", value=f"{member.guild.get_member(lobby_data[5]).mention}", inline=True)
-        if MOC_DB.column('SELECT UserID FROM LobbyUsers WHERE LobbyName = %s AND GuildID = %s', lobby, member.guild.id):
-            embed.add_field(name="CURRENT USERS:", value='\n'.join([member.guild.get_member(x).mention for x in MOC_DB.column('SELECT UserID FROM LobbyUsers WHERE LobbyName = %s AND GuildID = %s', lobby, member.guild.id)]), inline=True)
-        await member.send(embed=embed, view=View().add_item(discord.ui.Button(label="Join lobby",style=discord.ButtonStyle.link, url=str(await member.guild.get_channel(lobby_data[2]).create_invite(reason=f"{member} invited to {lobby}")))))
-        MOC_DB.execute("INSERT INTO LobbyUsers (UserID, GuildID, LobbyName) VALUES (%s, %s, %s)", member.id, member.guild.id, lobby)
+    async def invite_user(self, member, lobby_data, lobby_users):
+        await member.add_roles(member.guild.get_role(lobby_data.get("RoleID")), reason=f"{member} added to {lobby_data.get('LobbyName')}")
+        embed = self.interaction.client.create_embed("MOCBOT LOBBIES", f"You have been invited to join **{lobby_data.get('LobbyName')}**", None)
+        embed.add_field(name="LEADER:", value=f'{member.guild.get_member(lobby_data.get("LeaderID")).mention}', inline=True)
+        if lobby_users:
+            embed.add_field(name="CURRENT USERS:", value='\n'.join([member.guild.get_member(int(x)).mention for x in lobby_users]), inline=True)
+        await member.send(embed=embed, view=View().add_item(discord.ui.Button(label="Join lobby",style=discord.ButtonStyle.link, url=str(await member.guild.get_channel(lobby_data.get("VoiceChannelID")).create_invite(reason=f"{member} invited to {lobby_data.get('LobbyName')}")))))
     
-    async def remove_user(self, member, lobby):
-        lobby_data = LobbyPrompt.get_lobby_details(self.interaction.user)
-        await member.remove_roles(member.guild.get_role(lobby_data[4]), reason=f"{member} kicked from {lobby}")
-        MOC_DB.execute("DELETE FROM LobbyUsers WHERE GuildID = %s AND UserID = %s AND LobbyName = %s", member.guild.id, member.id, lobby)
+    async def remove_user(self, member, lobby_data):
+        await member.remove_roles(member.guild.get_role(lobby_data.get("RoleID")), reason=f"{member} kicked from {lobby_data.get('LobbyName')}")
+        await member.send(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"You have been kicked from **{lobby_data.get('LobbyName')}**", None))
+        API.delete(f'/lobby/{member.guild.id}/{lobby_data.get("LeaderID")}/{member.id}')
 
     async def create_lobby(self, name, leader):
         lobby_role = await leader.guild.create_role(name=name, reason=f"{leader} created a lobby.")
@@ -57,83 +56,93 @@ class LobbyPrompt(View):
         voice_channel = await leader.guild.create_voice_channel(name=name, overwrites=vc_perms, category=self.lobby_category, reason=f"{leader} created a lobby.")
         text_channel = await leader.guild.create_text_channel(name=name, overwrites=text_perms, category=self.lobby_category, reason=f"{leader} created a lobby.")
         await leader.add_roles(lobby_role, reason=f"{leader} added to {name}")
-        MOC_DB.execute("INSERT INTO Lobbies (GuildID, LobbyName, VC_ID, TC_ID, RoleID, LeaderID, Invite_Only) VALUES (%s, %s, %s, %s, %s, %s, %s)", leader.guild.id, name, voice_channel.id, text_channel.id, lobby_role.id, leader.id, 0)
+        API.post(f'/lobby/{leader.guild.id}', {"LobbyName": name, "VoiceChannelID": str(voice_channel.id), "TextChannelID": str(text_channel.id), "RoleID": str(lobby_role.id), "LeaderID": str(leader.id), "InviteOnly": False})
     
     async def delete_lobby(self, leader):
         lobby_details = LobbyPrompt.get_lobby_details(leader)
-        await self.interaction.client.get_channel(lobby_details[2]).delete(reason=f"{leader} deleted {lobby_details[1]}")
-        await self.interaction.client.get_channel(lobby_details[3]).delete(reason=f"{leader} deleted {lobby_details[1]}")
-        await leader.guild.get_role(lobby_details[4]).delete(reason=f"{leader} deleted {lobby_details[1]}")
-        MOC_DB.execute("DELETE FROM Lobbies WHERE GuildID = %s AND LeaderID = %s", leader.guild.id, leader.id)
-        MOC_DB.execute("DELETE FROM LobbyUsers WHERE GuildID = %s AND LobbyName = %s", leader.guild.id, lobby_details[1])
-
+        await self.interaction.client.get_channel(lobby_details.get("VoiceChannelID")).delete(reason=f"{leader} deleted {lobby_details.get('LobbyName')}")
+        await self.interaction.client.get_channel(lobby_details.get("TextChannelID")).delete(reason=f"{leader} deleted {lobby_details.get('LobbyName')}")
+        await leader.guild.get_role(lobby_details.get("RoleID")).delete(reason=f"{leader} deleted {lobby_details.get('LobbyName')}")
+        API.delete(f'/lobby/{leader.guild.id}/{leader.id}')
 
     async def rename_lobby(self, leader, new_name):
         lobby_details = LobbyPrompt.get_lobby_details(leader)
-        lobby_role = leader.guild.get_role(lobby_details[4])
+        lobby_role = leader.guild.get_role(lobby_details.get("RoleID"))
         vc_perms = {lobby_role: PermissionOverwrite(speak=True,connect=True,view_channel=True), leader.guild.default_role: PermissionOverwrite(view_channel=True, connect=False)}
         text_perms = {lobby_role: PermissionOverwrite(read_messages=True, send_messages=True), leader.guild.default_role: PermissionOverwrite(read_messages=False)}
-        await self.interaction.client.get_channel(lobby_details[2]).edit(name=new_name, overwrites=vc_perms, reason=f"{leader} renamed {lobby_details[1]} to {new_name}")
-        await self.interaction.client.get_channel(lobby_details[3]).edit(name=new_name, overwrites=text_perms, reason=f"{leader} renamed {lobby_details[1]} to {new_name}")
-        await leader.guild.get_role(lobby_details[4]).edit(name=new_name, reason=f"{leader} renamed {lobby_details[1]} to {new_name}")
-        MOC_DB.execute("UPDATE Lobbies SET LobbyName = %s WHERE GuildID = %s AND LeaderID = %s", new_name, leader.guild.id, leader.id)
-        MOC_DB.execute("UPDATE LobbyUsers SET LobbyName = %s WHERE GuildID = %s AND LobbyName = %s", new_name, leader.guild.id, lobby_details[1])
+        await self.interaction.client.get_channel(lobby_details.get("VoiceChannelID")).edit(name=new_name, overwrites=vc_perms, reason=f"{leader} renamed {lobby_details.get('LobbyName')} to {new_name}")
+        await self.interaction.client.get_channel(lobby_details.get("TextChannelID")).edit(name=new_name, overwrites=text_perms, reason=f"{leader} renamed {lobby_details.get('LobbyName')} to {new_name}")
+        await leader.guild.get_role(lobby_details.get("RoleID")).edit(name=new_name, reason=f"{leader} renamed {lobby_details.get('LobbyName')} to {new_name}")
+        API.patch(f'/lobby/{leader.guild.id}/{leader.id}', {"LobbyName": new_name})
     
-    async def transfer_lobby(self, new_leader):
-        lobby_details = LobbyPrompt.get_lobby_details(self.interaction.user)
-        await new_leader.add_roles(new_leader.guild.get_role(lobby_details[4]), reason=f"{new_leader} became leader of {lobby_details[1]}")
-        if LobbyPrompt.is_lobby_user(new_leader, lobby_details[1]):
-            MOC_DB.execute("DELETE FROM LobbyUsers WHERE GuildID = %s AND UserID = %s", lobby_details[0], new_leader.id)
-        MOC_DB.execute("INSERT INTO LobbyUsers (UserID, GuildID, LobbyName) VALUES (%s, %s, %s)", lobby_details[5], lobby_details[0], lobby_details[1])
-        MOC_DB.execute("UPDATE Lobbies SET LeaderID = %s WHERE GuildID = %s AND LobbyName = %s", new_leader.id, lobby_details[0], lobby_details[1])
+    async def transfer_lobby(self, new_leader, lobby_details):
+        await new_leader.add_roles(new_leader.guild.get_role(lobby_details.get("RoleID")), reason=f"{new_leader} became leader of {lobby_details.get('LobbyName')}")
+        route = f'/lobby/{new_leader.guild.id}/{lobby_details.get("LeaderID")}/users'
+        lobby_users = API.get(f'/lobby/{self.interaction.guild.id}/{lobby_details.get("LeaderID")}/users')
+        if LobbyPrompt.is_lobby_user(new_leader, lobby_details, lobby_users):
+            API.delete(f'/lobby/{new_leader.guild.id}/{lobby_details.get("LeaderID")}/{new_leader.id}')
+        API.post(route, [str(lobby_details.get("LeaderID"))])
+        API.patch(f'/lobby/{new_leader.guild.id}/{lobby_details.get("LeaderID")}', {"LeaderID": str(new_leader.id)})
     
     async def setInviteOnly(self, member, value):
         lobby_details = LobbyPrompt.get_lobby_details(member)
-        lobby_channel = self.interaction.client.get_channel(lobby_details[2])
-        MOC_DB.execute("UPDATE Lobbies SET Invite_Only = %s WHERE GuildID = %s AND LeaderID = %s", value, member.guild.id, member.id)
+        lobby_channel = self.interaction.client.get_channel(lobby_details.get("VoiceChannelID"))
+        API.patch(f'/lobby/{member.guild.id}/{member.id}', {"InviteOnly": value})
         if value:
             overwrites = {
-                member.guild.get_role(MOC_DB.field("SELECT RoleID FROM Lobbies WHERE GuildID = %s AND LeaderID = %s", member.guild.id, member.id)): PermissionOverwrite(speak=True, connect=True, view_channel=True),
+                member.guild.get_role(lobby_details.get("RoleID")): PermissionOverwrite(speak=True, connect=True, view_channel=True),
                 member.guild.default_role: PermissionOverwrite(connect=False, view_channel=False)
             }
         else:
             overwrites = {
-                member.guild.get_role(MOC_DB.field("SELECT RoleID FROM Lobbies WHERE GuildID = %s AND LeaderID = %s", member.guild.id, member.id)): PermissionOverwrite(speak=True, connect=True, view_channel=True),
+                member.guild.get_role(lobby_details.get("RoleID")): PermissionOverwrite(speak=True, connect=True, view_channel=True),
                 member.guild.default_role: PermissionOverwrite(connect=False, view_channel=True)
             }
         await lobby_channel.edit(overwrites=overwrites)
 
     def is_lobby_hidden(self, member):
-        return MOC_DB.field("SELECT Invite_Only FROM Lobbies WHERE GuildID = %s AND LeaderID = %s", member.guild.id, member.id) == 1
+        lobby_data = API.get(f'/lobby/{member.guild.id}/{member.id}')
+        return lobby_data.get("InviteOnly") == 1
 
-    def is_lobby_leader(member):
-        return member.id in MOC_DB.column("SELECT LeaderID FROM Lobbies WHERE GuildID = %s", member.guild.id)
+    def is_lobby_leader(member, data=None):
+        lobby_data = data or LobbyPrompt.get_lobby_details(member)
+        return bool(lobby_data.get("LeaderID") == member.id)
     
-    def is_lobby_user(member, lobby=None):
-        if lobby:
-            return member.id in MOC_DB.column("SELECT UserID FROM LobbyUsers WHERE GuildID = %s AND LobbyName = %s", member.guild.id, lobby)
-        else:
-            return member.id in MOC_DB.column("SELECT UserID FROM LobbyUsers WHERE GuildID = %s", member.guild.id)
+    def is_lobby_user(member, lobby_details, lobby_users=None):
+        lobby_users = lobby_users if lobby_users != None else API.get(f'/lobby/{member.guild.id}/{lobby_details.get("LeaderID")}/users')
+        return str(member.id) in lobby_users
 
     def get_lobby_details(member):
-        if LobbyPrompt.is_lobby_leader(member):
-            return MOC_DB.record("SELECT * FROM Lobbies WHERE GuildID = %s AND LeaderID = %s", member.guild.id, member.id)
+        data = None
+        try:
+            data = API.get(f"/lobby/{member.guild.id}/{member.id}")
+        except HTTPError as e:
+            if e.response.status_code == 404:
+                try: 
+                    data = API.get(f"/lobbies/{member.guild.id}/{member.id}")
+                except HTTPError as e:
+                    if e.response.status_code == 404:
+                        pass 
+                    else: 
+                        raise e 
+                return {} if data is None else data
         else:
-            lobby_name = MOC_DB.field("SELECT LobbyName FROM LobbyUsers WHERE GuildID = %s AND UserID = %s", member.guild.id, member.id)
-            return MOC_DB.record("SELECT * FROM Lobbies WHERE GuildID = %s AND LobbyName = %s", member.guild.id, lobby_name)
+            return data
 
-    async def updateView(self):
-        await self.interaction.edit_original_response(embed=self.getEmbed(), view=self)
+    async def updateView(self, embed=None):
+        await self.interaction.edit_original_response(embed=embed or self.getEmbed(), view=self)
 
     def updateOptions(self):
         self.clear_items()
-        if LobbyPrompt.is_lobby_leader(self.interaction.user):
-            self.lobby_leader_prompt()
-        elif LobbyPrompt.is_lobby_user(self.interaction.user):
-             self.lobby_user_prompt()
+        lobby_data = LobbyPrompt.get_lobby_details(self.interaction.user)
+
+        if lobby_data != {}:
+            if LobbyPrompt.is_lobby_leader(self.interaction.user, lobby_data):
+                self.lobby_leader_prompt()
+            elif LobbyPrompt.is_lobby_user(self.interaction.user, lobby_data):
+                self.lobby_user_prompt()
         else:
             self.new_lobby_prompt()
-    
 
     def new_lobby_prompt(self):
         create_button = Button(label="Create Lobby", style=discord.ButtonStyle.green, row=1)
@@ -186,6 +195,13 @@ class LobbyPrompt(View):
         close_button = Button(label="Close Menu", style=discord.ButtonStyle.blurple, row=1)
         close_button.callback = self.close_menu
         self.add_item(close_button)
+
+    async def check_lobby_exists(self, interaction):
+        lobby_details = LobbyPrompt.get_lobby_details(interaction.user)
+        if lobby_details == {}:
+            await self.delete_prompt()
+            await interaction.response.send_message(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"This lobby does not exist anymore.", None), ephemeral=True)
+        return lobby_details
             
     async def delete_prompt(self):
         try:
@@ -200,12 +216,17 @@ class LobbyPrompt(View):
         await interaction.response.send_modal(LobbyCreation(self))
     
     async def leave_button_callback(self, interaction:discord.Interaction):
-        lobby_details = LobbyPrompt.get_lobby_details(interaction.user)
-        await self.remove_user(interaction.user, lobby_details[1])
+        lobby_details = await self.check_lobby_exists(interaction)
+        if lobby_details == {}:
+            return
+        await self.remove_user(interaction.user, lobby_details)
         await self.delete_prompt()
-        await interaction.response.send_message(f"You have successfully left **{lobby_details[1]}**" , ephemeral=True)
+        await interaction.response.send_message(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"You have successfully left {lobby_details.get('LobbyName')}", None), ephemeral=True)
 
     async def invite_button_callback(self, interaction:discord.Interaction):
+        lobby_details = await self.check_lobby_exists(interaction)
+        if lobby_details == {}:
+            return
         await interaction.response.send_message(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"To invite users into your lobby, mention the users you'd like to invite below.", None))
         prompt = await interaction.original_response()
         
@@ -219,13 +240,25 @@ class LobbyPrompt(View):
         else:
             await msg.delete()
             await prompt.delete()
-            for member in msg.mentions:
-                if not LobbyPrompt.is_lobby_leader(member) and not LobbyPrompt.is_lobby_user(member):
-                    await self.invite_user(member, LobbyPrompt.get_lobby_details(interaction.user)[1])
+            lobby_users = API.get(f'/lobby/{self.interaction.guild.id}/{lobby_details.get("LeaderID")}/users')
+            members_to_add = []
+            await self.updateView(self.interaction.client.create_embed("MOCBOT LOBBIES", f"It appears you are the lobby leader for **{lobby_details.get('LobbyName')}**.\n\n **MEMBERS:**\nInviting Users...", None))
+            for member in set(msg.mentions):
+                if not LobbyPrompt.is_lobby_leader(member, lobby_details) and not LobbyPrompt.is_lobby_user(member, lobby_details, lobby_users):
+                    try:    
+                        await self.invite_user(member, lobby_details, lobby_users)
+                    except (discord.errors.HTTPException, AttributeError):
+                        pass
+                    else:
+                        members_to_add.append(str(member.id))
+            if len(members_to_add) != 0:
+                API.post(f'/lobby/{self.interaction.guild.id}/{lobby_details.get("LeaderID")}/users', members_to_add)
             await self.updateView()
-            # await interaction.followup.send(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"Invited {' '.join([x.mention for x in msg.mentions])}", None), ephemeral=True)
 
     async def kick_button_callback(self, interaction:discord.Interaction):
+        lobby_details = await self.check_lobby_exists(interaction)
+        if lobby_details == {}:
+            return
         await interaction.response.send_message(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"To kick users from your lobby, mention the users you'd like to kick below.", None))
         prompt = await interaction.original_response()
         
@@ -239,14 +272,21 @@ class LobbyPrompt(View):
         else:
             await msg.delete()
             await prompt.delete()
-            lobby_details = LobbyPrompt.get_lobby_details(interaction.user)
+            lobby_users = API.get(f'/lobby/{self.interaction.guild.id}/{lobby_details.get("LeaderID")}/users')
+            await self.updateView(self.interaction.client.create_embed("MOCBOT LOBBIES", f"It appears you are the lobby leader for **{lobby_details.get('LobbyName')}**.\n\n **MEMBERS:**\nRemoving Users...", None))
             for member in msg.mentions:
-                await self.remove_user(member, lobby_details[1])
-                await member.send(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"You have been kicked from **{lobby_details[1]}**", None))
+                if (not LobbyPrompt.is_lobby_user(member, lobby_details, lobby_users)) or LobbyPrompt.is_lobby_leader(member, lobby_details):
+                    pass
+                try:
+                    await self.remove_user(member, lobby_details)
+                except (discord.errors.HTTPException, AttributeError):
+                    pass 
             await self.updateView()
-            # await interaction.followup.send(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"Kicked {' '.join([x.mention for x in msg.mentions])}", None), ephemeral=True)
 
     async def transfer_button_callback(self, interaction:discord.Interaction):
+        lobby_details = await self.check_lobby_exists(interaction)
+        if lobby_details == {}:
+            return
         await interaction.response.send_message(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"Mention the user you'd like to transfer your lobby to.", None))
         prompt = await interaction.original_response()
 
@@ -262,34 +302,44 @@ class LobbyPrompt(View):
             await prompt.delete()
             if msg.mentions:
                 await self.delete_prompt()
-                if not LobbyPrompt.is_lobby_leader(msg.mentions[0]):
-                    lobby_details = LobbyPrompt.get_lobby_details(interaction.user)
-                    await self.transfer_lobby(msg.mentions[0])
-                    await msg.mentions[0].send(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"**{interaction.user}** has transferred their lobby **{lobby_details[1]}** to you.", None))
-                    await interaction.followup.send(f"Your lobby has successfully been transferred to **{msg.mentions[0]}**.", ephemeral=True)
+                if not LobbyPrompt.is_lobby_leader(msg.mentions[0]) and not msg.mentions[0].bot:
+                    await self.transfer_lobby(msg.mentions[0], lobby_details)
+                    await msg.mentions[0].send(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"**{interaction.user}** has transferred their lobby **{lobby_details.get('LobbyName')}** to you.", None))
+                    await interaction.followup.send(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"Your lobby has successfully been transferred to **{msg.mentions[0]}**.", None), ephemeral=True)
                 else:
-                    await interaction.followup.send(f"The user you have mentioned is currently a leader of another lobby. You may only transfer your lobby to a user of your own lobby or a user who is not a lobby leader.", ephemeral=True)
+                    await interaction.followup.send(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", f"The user you have mentioned is either currently a leader of another lobby, or not a valid user. You may only transfer your lobby to a user of your own lobby or a user who is not a lobby leader.", None), ephemeral=True)
 
     async def rename_button_callback(self, interaction:discord.Interaction):
+        lobby_details = await self.check_lobby_exists(interaction)
+        if lobby_details == {}:
+            return
         await interaction.response.send_modal(LobbyRename(self))
 
-
     async def delete_button_callback(self, interaction:discord.Interaction):
+        lobby_details = await self.check_lobby_exists(interaction)
+        if lobby_details == {}:
+            return
+        await interaction.response.defer(thinking=False)
+        await self.updateView(self.interaction.client.create_embed("MOCBOT LOBBIES", f"Removing lobby...", None))
         await self.delete_lobby(interaction.user)
         await self.delete_prompt()
-        await interaction.response.send_message("Your lobby has successfully been deleted.", ephemeral=True)
+        await interaction.followup.send(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", "Your lobby has successfully been deleted.", None), ephemeral=True)
     
     async def hide_button_callback(self, interaction:discord.Interaction):
+        lobby_details = await self.check_lobby_exists(interaction)
+        if lobby_details == {}:
+            return
         await self.setInviteOnly(interaction.user, 1)
         await self.delete_prompt()
-        await interaction.response.send_message("Your lobby is now publicly hidden and is invite only.", ephemeral=True)
+        await interaction.response.send_message(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", "Your lobby is now publicly hidden and is invite only.", None), ephemeral=True)
     
     async def show_button_callback(self, interaction:discord.Interaction):
+        lobby_details = await self.check_lobby_exists(interaction)
+        if lobby_details == {}:
+            return
         await self.setInviteOnly(interaction.user, 0)
         await self.delete_prompt()
-        await interaction.response.send_message("Your lobby is now publicly visible and can be requested to join.", ephemeral=True)
-
-
+        await interaction.response.send_message(embed=self.interaction.client.create_embed("MOCBOT LOBBIES", "Your lobby is now publicly visible and can be requested to join.", None), ephemeral=True)
 
 class LobbyCreation(Modal, title='Lobby Creation'):
     lobby_name = TextInput(label='Lobby Name')
@@ -299,15 +349,14 @@ class LobbyCreation(Modal, title='Lobby Creation'):
         super().__init__()
 
     async def on_submit(self, interaction: discord.Interaction):
-        # await self.LobbyPrompt.delete_prompt()
         await interaction.response.defer(thinking=False)
+        self.LobbyPrompt.clear_items()
+        await self.LobbyPrompt.updateView(interaction.client.create_embed("MOCBOT LOBBIES", f"Creating lobby **{self.lobby_name.value}**", None))
         await self.LobbyPrompt.create_lobby(self.lobby_name.value, interaction.user)
         await asyncio.sleep(1)
         self.LobbyPrompt.updateOptions()
         await self.LobbyPrompt.updateView()
-        # await interaction.followup.send(embed=self.LobbyPrompt.getEmbed(), view=self.LobbyPrompt)
-        # self.LobbyPrompt.interaction = interaction
-    
+
 class LobbyRename(Modal, title='Rename Lobby'):
     lobby_name = TextInput(label='Lobby Name')
 
@@ -330,39 +379,42 @@ class Lobbies(commands.Cog):
         self.lobby_offline_detection.start()
         self.logger = logging.getLogger(__name__)
 
-
     async def cog_load(self):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
 
     def ensure_lobbies():
         def predicate(interaction: discord.Interaction) -> bool:
-            return bool(MOC_DB.field("SELECT LOBBY_CATEGORY FROM Guild_Settings WHERE GuildID = %s", interaction.guild.id))
+            settings = API.get(f'/settings/{interaction.guild.id}')
+            return bool(settings.get("LobbyCategory", None) if settings is not None else False)
         return app_commands.check(predicate)
 
-    @tasks.loop(seconds=10)
-    async def lobby_offline_detection(self):
-        lobbies = MOC_DB.records("SELECT * FROM Lobbies")
+    @tasks.loop(seconds=120)
+    async def lobby_offline_detection(self):    
+        lobbies = API.get('/lobbies/')
         for lobby in lobbies:
-            if(guild := self.bot.get_guild(lobby[0])) != None and (old_leader := guild.get_member(lobby[5])) != None:
+            guild = self.bot.get_guild(int(lobby.get("GuildID")))
+            if guild == None:
+                continue
+            old_leader = guild.get_member(int(lobby.get("LeaderID")))
+            if old_leader != None:
                 if old_leader.status == Status.offline:
-                    vc_channel = guild.get_channel(lobby[2])
+                    vc_channel = guild.get_channel(int(lobby.get("VoiceChannelID")))
                     if vc_channel.members:
                         new_lobby_leader = None
                         for member in vc_channel.members:
                             if not member.bot and member.status != Status.offline and member != old_leader:
                                 new_lobby_leader = member
                         if new_lobby_leader != None:
-                            MOC_DB.execute("DELETE FROM LobbyUsers WHERE GuildID = %s AND UserID = %s", lobby[0], new_lobby_leader.id)
-                            MOC_DB.execute("INSERT INTO LobbyUsers (UserID, GuildID, LobbyName) VALUES (%s, %s, %s)", lobby[5], lobby[0], lobby[1])
-                            MOC_DB.execute("UPDATE Lobbies SET LeaderID = %s WHERE GuildID = %s AND LobbyName = %s", new_lobby_leader.id, lobby[0], lobby[1])
-                            await new_lobby_leader.send(embed=self.bot.create_embed("MOCBOT LOBBIES", f"You are now the lobby leader for **{lobby[1]}** because the original lobby leader went offline.", None), view=View().add_item(discord.ui.Button(label="Join lobby",style=discord.ButtonStyle.link, url=str(await old_leader.guild.get_channel(lobby[2]).create_invite(reason=f"{new_lobby_leader} become leader of {lobby[1]}")))))
+                            API.delete(f'/lobby/{lobby.get("GuildID")}/{lobby.get("LeaderID")}/{new_lobby_leader.id}')
+                            API.post(f'/lobby/{lobby.get("GuildID")}/{lobby.get("LeaderID")}/users', [str(lobby.get("LeaderID"))])
+                            API.patch(f'/lobby/{lobby.get("GuildID")}/{lobby.get("LeaderID")}', {"LeaderID": str(new_lobby_leader.id)})
+                            await new_lobby_leader.send(embed=self.bot.create_embed("MOCBOT LOBBIES", f"You are now the lobby leader for **{lobby.get('LobbyName')}** because the original lobby leader went offline.", None), view=None)
                             await old_leader.send(embed=self.bot.create_embed("MOCBOT LOBBIES", f"Your lobby has been transferred to {new_lobby_leader} because you went offline.", None))
                             return
-                    await self.bot.get_channel(lobby[2]).delete(reason=f"[AUTO DELETE {lobby[1]}] {old_leader} went offline")
-                    await self.bot.get_channel(lobby[3]).delete(reason=f"[AUTO DELETE {lobby[1]}] {old_leader} deleted {lobby[1]}")
-                    await guild.get_role(lobby[4]).delete(reason=f"{old_leader} deleted {lobby[1]}")
-                    MOC_DB.execute("DELETE FROM Lobbies WHERE GuildID = %s AND LeaderID = %s", guild.id, old_leader.id)
-                    MOC_DB.execute("DELETE FROM LobbyUsers WHERE GuildID = %s AND LobbyName = %s", guild.id, lobby[1])
+                    await self.bot.get_channel(int(lobby.get("VoiceChannelID"))).delete(reason=f"[AUTO DELETE {lobby.get('LobbyName')}] {old_leader} went offline")
+                    await self.bot.get_channel(int(lobby.get("TextChannelID"))).delete(reason=f"[AUTO DELETE {lobby.get('LobbyName')}] {old_leader} deleted {lobby.get('LobbyName')}")
+                    await guild.get_role(int(lobby.get("RoleID"))).delete(reason=f"{old_leader} deleted {lobby.get('LobbyName')}")
+                    API.delete(f'/lobby/{lobby.get("GuildID")}/{lobby.get("LeaderID")}')
                     await old_leader.send(embed=self.bot.create_embed("MOCBOT LOBBIES", f"Your lobby has been deleted because you went offline.", None))
 
     @lobby_offline_detection.before_loop
@@ -370,19 +422,25 @@ class Lobbies(commands.Cog):
         await self.bot.wait_until_ready()
 
     @app_commands.command(name="lobby", description="Open/manage a MOCBOT lobby.")
-    #  @app_commands.guilds(DEV_GUILD)
     @ensure_lobbies()
     async def lobby(self, interaction: discord.Interaction):
+        guild = self.bot.get_guild(interaction.guild.id)
+        user = guild.get_member(interaction.user.id)
+        if user.status == Status.offline:
+            return await interaction.response.send_message(embed=interaction.client.create_embed("MOCBOT LOBBIES", f"It appears that you are offline. Please change your status to any other status before interacting with the Lobby system. Please note that any lobby you create will be deleted if you are offline.", None), ephemeral=True)
         view=LobbyPrompt(timeout=60, interaction=interaction)
         lobby_data = LobbyPrompt.get_lobby_details(interaction.user)
-        if LobbyPrompt.is_lobby_leader(interaction.user):
-            if MOC_DB.column('SELECT UserID FROM LobbyUsers WHERE LobbyName = %s AND GuildID = %s', lobby_data[1], interaction.guild.id):
-                embed = interaction.client.create_embed("MOCBOT LOBBIES", f"It appears you are the lobby leader for **{lobby_data[1]}**", None)
-                embed.add_field(name="MEMBERS:", value='\n'.join([interaction.guild.get_member(x).mention for x in MOC_DB.column('SELECT UserID FROM LobbyUsers WHERE LobbyName = %s AND GuildID = %s', lobby_data[1], interaction.guild.id)]), inline=True)
-            else:
-                embed = interaction.client.create_embed("MOCBOT LOBBIES", f"It appears you are the lobby leader for **{lobby_data[1]}**\nYour lobby is currently empty. Invite people with the button below", None)
-        elif LobbyPrompt.is_lobby_user(interaction.user):
-            embed = interaction.client.create_embed("MOCBOT LOBBIES", f"It appears you a member of **{lobby_data[1]}**", None)
+        embed = None
+        if lobby_data != {}:
+            if LobbyPrompt.is_lobby_leader(interaction.user, lobby_data):
+                users = API.get(f'/lobby/{interaction.guild.id}/{lobby_data.get("LeaderID", None)}/users')
+                if users:
+                    embed = interaction.client.create_embed("MOCBOT LOBBIES", f"It appears you are the lobby leader for **{lobby_data.get('LobbyName', None)}**", None)
+                    embed.add_field(name="MEMBERS:", value='\n'.join([interaction.guild.get_member(int(x)).mention for x in users]), inline=True)
+                else:
+                    embed = interaction.client.create_embed("MOCBOT LOBBIES", f"It appears you are the lobby leader for **{lobby_data.get('LobbyName', None)}**\nYour lobby is currently empty. Invite people with the button below.", None)
+            elif LobbyPrompt.is_lobby_user(interaction.user, lobby_data):
+                embed = interaction.client.create_embed("MOCBOT LOBBIES", f"It appears you a member of **{lobby_data.get('LobbyName', None)}**", None)
         else:
             embed = self.bot.create_embed("MOCBOT LOBBIES", "MOCBOT lobbies allows users to create their own private parties. Create a lobby to enjoy private sessions!", None)
         await interaction.response.send_message(embed=embed, view=view)

@@ -1,15 +1,12 @@
 from discord.ext import commands
-from discord.ui import Button, View
 from discord import app_commands
-from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB, MOC_GUILD
-from typing import Literal, Union, Optional
+from lib.bot import config, MOC_GUILD, DEV_GUILD
 import discord
 import logging
 
 from glob import glob
 import os
 import traceback
-
 
 class Cogs(commands.Cog):
 
@@ -20,6 +17,7 @@ class Cogs(commands.Cog):
         self.logger = logging.getLogger(__name__)
 
         if self.bot.is_dev:
+            self.logger.warn("--dev flag activated. Additional cogs will not be loaded.")
             for cog in [path.split("\\")[-1][:-3] if os.name == "nt" else path.split("\\")[-1][:-3].split("/")[-1] for path in glob("./lib/cogs/*.py")]:
                 if cog not in ["Cogs", "ErrorHandler"]:
                     self.disabled_cogs.append(cog)
@@ -62,6 +60,7 @@ class Cogs(commands.Cog):
     async def load_cogs(self):
         if not self.unloaded_cogs:
             await self.fetch_cogs()
+        [self.logger.warn(f"[COG] Skipping {cog} because it is disabled.") for cog in self.disabled_cogs]
         while self.unloaded_cogs:
             cog = self.unloaded_cogs.pop(0)
             if cog in config["DEPENDENCIES"]:
@@ -73,8 +72,7 @@ class Cogs(commands.Cog):
             else:
                 await self.load_cog(cog)
 
-    CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.", guild_ids=[
-                                  DEV_GUILD.id, MOC_GUILD.id])
+    CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.", guild_ids=[DEV_GUILD.id])
 
     @CogGroup.command(name="list", description="Lists all cog statuses.")
     async def list(self, interaction: discord.Interaction):
@@ -147,7 +145,6 @@ class Cogs(commands.Cog):
             embed = self.bot.create_embed(
                 "MOCBOT SETUP", f"Reloaded {', '.join([cog for cog in cogs])}.", None)
         await interaction.response.send_message(embed=embed, ephemeral=True)
-
 
 async def setup(bot):
     cogs_class = Cogs(bot)

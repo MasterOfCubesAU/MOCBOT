@@ -1,7 +1,5 @@
-import asyncio
 from discord.ext import commands
 from discord import app_commands
-from lib.db import MOC_DB
 import logging.config
 import logging
 import discord
@@ -25,9 +23,6 @@ class MOCBOT(commands.Bot):
 
     async def setup_hook(self):
         self.setup_logger()
-        global MOC_DB
-        MOC_DB = MOC_DB()
-        MOC_DB.connect()
         await self.load_cog_manager()
         self.appinfo = await super().application_info()
         if self.appinfo.icon is not None:
@@ -79,8 +74,9 @@ class MOCBOT(commands.Bot):
         )
 
     async def on_interaction(self, interaction):
-        self.logger.info(
-            f"[COMMAND] [{interaction.guild} // {interaction.guild.id}] {interaction.user} ({interaction.user.id}) used command {interaction.command.name}")
+        if interaction.type is discord.InteractionType.application_command:
+            self.logger.info(
+                f"[COMMAND] [{interaction.guild} // {interaction.guild.id}] {interaction.user} ({interaction.user.id}) used command {interaction.command.name}")
 
     async def on_message(self, message):
         await self.wait_until_ready()

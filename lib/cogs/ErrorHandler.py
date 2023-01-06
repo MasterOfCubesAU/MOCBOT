@@ -1,16 +1,7 @@
 from discord.ext import commands
-from discord.app_commands import errors
-from discord.ui import Button, View
-from discord import app_commands
-from lib.bot import config, MOCBOT, DEV_GUILD, MOC_DB
-from typing import Literal, Union, Optional
-
-import discord
 import logging
 
 import traceback
-
-
 
 class ErrorHandler(commands.Cog):
 
@@ -18,6 +9,7 @@ class ErrorHandler(commands.Cog):
         self.bot = bot
         self.bot.tree.on_error = self.on_app_command_error
         self.logger = logging.getLogger(__name__)
+        self.bot.on_error = self.on_error
 
     async def cog_load(self):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
@@ -29,9 +21,11 @@ class ErrorHandler(commands.Cog):
         
         self.logger.error(f"[ERROR] Unhandled Error: {error}")
         traceback.print_exc()
+        raise error
 
-
-
-
+    async def on_error(self, event, *args, **kwargs):
+        self.logger.error(f"[ERROR] Unhandled Error: {event}, {args}, {kwargs}")
+        traceback.print_exc()
+        
 async def setup(bot):
     await bot.add_cog(ErrorHandler(bot))
