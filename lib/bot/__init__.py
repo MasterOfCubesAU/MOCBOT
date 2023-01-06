@@ -42,7 +42,7 @@ class MOCBOT(commands.Bot):
         await self.load_extension("lib.cogs.Cogs")
 
     def run(self):
-        super().run(config["TOKENS"][self.mode])
+        super().run(config["TOKENS"][self.mode], log_handler=None)
 
     def create_embed(self, title, description, colour):
         embed = discord.Embed(title=None, description=description,
