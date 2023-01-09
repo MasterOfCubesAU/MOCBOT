@@ -114,6 +114,9 @@ class Music(commands.Cog):
             return sum(int(x) * 60 ** i for i, x in enumerate(reversed(time.split(':')))) 
         else:
             return None
+
+    def is_youtube_url(url):
+        return re.match("^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube(-nocookie)?\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?$", url)
             
     async def next_playing(self, event):
         if isinstance(event, lavalink.events.TrackStartEvent):
@@ -132,16 +135,21 @@ class Music(commands.Cog):
             guild_id = event.player.guild_id
             guild = self.bot.get_guild(guild_id)
             player = event.player
+            results = None
             if len(player.queue) == 0 and player.fetch("autoplay") and player.loop == player.LOOP_NONE:
-                results = await player.node.get_tracks(event.track.uri + f"&list=RD{event.track.identifier}")
-
+                if not Music.is_youtube_url(event.track.uri):
+                    youtube_res = await player.node.get_tracks(f'ytsearch:{event.track.title} {event.track.author}')
+                    track = youtube_res.tracks[0]
+                    results = await player.node.get_tracks(track.uri + f"&list=RD{track.identifier}")
+                else:
+                    results = await player.node.get_tracks(event.track.uri + f"&list=RD{event.track.identifier}")
                 if not results or not results.tracks:
                     await self.disconnect_bot(guild_id)
                     raise commands.CommandInvokeError('Auto queueing could not load the next song.')
 
-                random_track = random.randrange(1, len(results.tracks) - 1)
-                player.add(requester=None, track=results.tracks[random_track])
-                self.logger.info(f"[MUSIC] [{guild} // {guild_id}] Auto-queued {results.tracks[random_track].title} - {results.tracks[random_track].uri}")
+                track_number = random.randrange(1, len(results.tracks) - 1)
+                player.add(requester=None, track=results.tracks[track_number])
+                self.logger.info(f"[MUSIC] [{guild} // {guild_id}] Auto-queued {results.tracks[track_number].title} - {results.tracks[track_number].uri}")
                 if not player.is_playing:
                     await player.play()
                 
