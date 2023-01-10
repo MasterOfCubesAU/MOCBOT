@@ -6,8 +6,8 @@ import datetime
 
 
 class QueueMenu(View, menus.MenuPages):
-    def __init__(self, source, interaction):
-        super().__init__(timeout=20)
+    def __init__(self, source, interaction, timeout=20):
+        super().__init__(timeout=timeout)
         self._source = source
         self.current_page = 0
         self.ctx = None

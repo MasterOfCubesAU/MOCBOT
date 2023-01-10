@@ -8,7 +8,9 @@ import logging
 from utils.Lavalink import LavalinkVoiceClient
 from utils.MusicFilters import FilterDropdownView, MusicFilters
 from utils.MusicQueue import QueueMenu, QueuePagination
+from utils.MusicLyrics import get_lyrics, lyrics_substring, LyricsMenu, LyricsPagination
 from StringProgressBar import progressBar
+from spotifysearch.client import Client as SpotifyClient
 import lavalink
 import re
 import functools
@@ -18,7 +20,6 @@ import datetime
 import random
 from functools import reduce
 import requests
-
 
 class Music(commands.Cog):
 
@@ -381,26 +382,6 @@ class Music(commands.Cog):
         await self.updateNowPlaying(interaction.guild, player)
         await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
-    @app_commands.command(name="loop", description="Loop the current media or queue.")
-    @interaction_ensure_voice
-    async def loop(self, interaction: discord.Interaction, type: Literal["Off", "Song", "Queue"]):
-        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
-        if player is None or player.current is None:
-            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The loop command requires media to be playing first.", None))
-            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
-        match type:
-            case "Off":
-                player.set_loop(0)
-                await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Looping is disabled for the queue.", None))
-            case "Song":
-                player.set_loop(1)
-                await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Song looping is enabled.", None))
-            case "Queue":
-                player.set_loop(2)
-                await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Queue looping is enabled.", None))
-        await self.updateNowPlaying(interaction.guild, player)
-        await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
-
     @app_commands.command(name="disconnect", description="Disconnects the bot from voice.")
     @interaction_ensure_voice
     async def disconnect(self, interaction: discord.Interaction):
@@ -640,6 +621,31 @@ class Music(commands.Cog):
                 await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Autoplaying is enabled for the queue{'.' if not loop_disabled else ', and looping has been disabled.'}", None))
         await self.updateNowPlaying(interaction.guild, player)
         await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+
+    @app_commands.command(name="lyrics", description="Retrieves lyrics for a song")
+    @app_commands.describe(
+        query="The song to search lyrics for. Leaving this blank will fetch lyrics for the current song."
+    )
+    async def lyrics(self, interaction: discord.Interaction, query: typing.Optional[str]):
+        await interaction.response.defer(thinking=True, ephemeral=True)
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+        my_client = SpotifyClient(config["SPOTIFY"]["CLIENT_ID"], config["SPOTIFY"]["CLIENT_SECRET"])
+
+        if (player is None or player.current is None) and query is None:
+            return await interaction.followup.send(embed=self.bot.create_embed("MOCBOT MUSIC", f"The lyrics command requires media to be playing first. Alternatively, you can search for lyrics for a specific song.", None))
+        search = player.current.title + player.current.author if query is None else query
+
+        tracks = my_client.search(search).get_tracks()
+        lyrics = None
+        if len(tracks) >= 1:
+            lyrics = await get_lyrics(tracks[0].name, tracks[0].artists[0].name)
+
+        if not lyrics and query is None:
+            return await interaction.followup.send(embed=self.bot.create_embed("MOCBOT MUSIC", f"Lyrics were not found for **{player.current.title}**", None))
+        elif not lyrics and query is not None:
+            return await interaction.followup.send(embed=self.bot.create_embed("MOCBOT MUSIC", f"Lyrics were not found for **{query}**. Try searching again using the format: `(Song Name) - (Artist)`.", None))
+        pages = LyricsMenu(source=LyricsPagination(interaction=interaction, lyrics=lyrics_substring(lyrics), song=tracks[0].name, artist=tracks[0].artists[0].name), interaction=interaction)
+        await pages.start(await discord.ext.commands.Context.from_interaction(interaction))
 
 async def setup(bot):
     await bot.add_cog(Music(bot))
