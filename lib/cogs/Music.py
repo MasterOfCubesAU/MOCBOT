@@ -8,7 +8,9 @@ import logging
 from utils.Lavalink import LavalinkVoiceClient
 from utils.MusicFilters import FilterDropdownView, MusicFilters
 from utils.MusicQueue import QueueMenu, QueuePagination
+from utils.MusicLyrics import get_lyrics, lyrics_substring, LyricsMenu, LyricsPagination
 from StringProgressBar import progressBar
+from spotifysearch.client import Client as SpotifyClient
 import lavalink
 import re
 import functools
@@ -18,7 +20,6 @@ import datetime
 import random
 from functools import reduce
 import requests
-
 
 class Music(commands.Cog):
 
@@ -114,6 +115,9 @@ class Music(commands.Cog):
             return sum(int(x) * 60 ** i for i, x in enumerate(reversed(time.split(':')))) 
         else:
             return None
+
+    def is_youtube_url(url):
+        return re.match("^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube(-nocookie)?\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?$", url)
             
     async def next_playing(self, event):
         if isinstance(event, lavalink.events.TrackStartEvent):
@@ -132,16 +136,21 @@ class Music(commands.Cog):
             guild_id = event.player.guild_id
             guild = self.bot.get_guild(guild_id)
             player = event.player
+            results = None
             if len(player.queue) == 0 and player.fetch("autoplay") and player.loop == player.LOOP_NONE:
-                results = await player.node.get_tracks(event.track.uri + f"&list=RD{event.track.identifier}")
-
+                if not Music.is_youtube_url(event.track.uri):
+                    youtube_res = await player.node.get_tracks(f'ytsearch:{event.track.title} {event.track.author}')
+                    track = youtube_res.tracks[0]
+                    results = await player.node.get_tracks(track.uri + f"&list=RD{track.identifier}")
+                else:
+                    results = await player.node.get_tracks(event.track.uri + f"&list=RD{event.track.identifier}")
                 if not results or not results.tracks:
                     await self.disconnect_bot(guild_id)
                     raise commands.CommandInvokeError('Auto queueing could not load the next song.')
 
-                random_track = random.randrange(1, len(results.tracks) - 1)
-                player.add(requester=None, track=results.tracks[random_track])
-                self.logger.info(f"[MUSIC] [{guild} // {guild_id}] Auto-queued {results.tracks[random_track].title} - {results.tracks[random_track].uri}")
+                track_number = random.randrange(1, len(results.tracks) - 1)
+                player.add(requester=None, track=results.tracks[track_number])
+                self.logger.info(f"[MUSIC] [{guild} // {guild_id}] Auto-queued {results.tracks[track_number].title} - {results.tracks[track_number].uri}")
                 if not player.is_playing:
                     await player.play()
                 
@@ -351,26 +360,6 @@ class Music(commands.Cog):
             return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
         await player.seek(time*1000)
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Seeked to `{await self.formatDuration(time*1000)}`.", None))
-        await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
-
-    @app_commands.command(name="loop", description="Loop the current media or queue.")
-    @interaction_ensure_voice
-    async def loop(self, interaction: discord.Interaction, type: Literal["Off", "Song", "Queue"]):
-        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
-        if player is None or player.current is None:
-            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The loop command requires media to be playing first.", None))
-            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
-        match type:
-            case "Off":
-                player.set_loop(0)
-                await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Looping is disabled for the queue.", None))
-            case "Song":
-                player.set_loop(1)
-                await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Song looping is enabled.", None))
-            case "Queue":
-                player.set_loop(2)
-                await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Queue looping is enabled.", None))
-        await self.updateNowPlaying(interaction.guild, player)
         await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
     @app_commands.command(name="loop", description="Loop the current media or queue.")
@@ -632,6 +621,31 @@ class Music(commands.Cog):
                 await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Autoplaying is enabled for the queue{'.' if not loop_disabled else ', and looping has been disabled.'}", None))
         await self.updateNowPlaying(interaction.guild, player)
         await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+
+    @app_commands.command(name="lyrics", description="Retrieves lyrics for a song")
+    @app_commands.describe(
+        query="The song to search lyrics for. Leaving this blank will fetch lyrics for the current song."
+    )
+    async def lyrics(self, interaction: discord.Interaction, query: typing.Optional[str]):
+        await interaction.response.defer(thinking=True, ephemeral=True)
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+        my_client = SpotifyClient(config["SPOTIFY"]["CLIENT_ID"], config["SPOTIFY"]["CLIENT_SECRET"])
+
+        if (player is None or player.current is None) and query is None:
+            return await interaction.followup.send(embed=self.bot.create_embed("MOCBOT MUSIC", f"The lyrics command requires media to be playing first. Alternatively, you can search for lyrics for a specific song.", None))
+        search = player.current.title + player.current.author if query is None else query
+
+        tracks = my_client.search(search).get_tracks()
+        lyrics = None
+        if len(tracks) >= 1:
+            lyrics = await get_lyrics(tracks[0].name, tracks[0].artists[0].name)
+
+        if not lyrics and query is None:
+            return await interaction.followup.send(embed=self.bot.create_embed("MOCBOT MUSIC", f"Lyrics were not found for **{player.current.title}**", None))
+        elif not lyrics and query is not None:
+            return await interaction.followup.send(embed=self.bot.create_embed("MOCBOT MUSIC", f"Lyrics were not found for **{query}**. Try searching again using the format: `(Song Name) - (Artist)`.", None))
+        pages = LyricsMenu(source=LyricsPagination(interaction=interaction, lyrics=lyrics_substring(lyrics), song=tracks[0].name, artist=tracks[0].artists[0].name), interaction=interaction)
+        await pages.start(await discord.ext.commands.Context.from_interaction(interaction))
 
 async def setup(bot):
     await bot.add_cog(Music(bot))
