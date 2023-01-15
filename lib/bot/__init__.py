@@ -1,3 +1,4 @@
+import asyncio
 from discord.ext import commands
 from discord import app_commands
 import logging.config
@@ -5,6 +6,8 @@ import logging
 import discord
 import yaml
 import os
+
+from lib.socket.Socket import Socket
 
 with open("./config.yml", "r") as f:
     config = yaml.safe_load(f)
@@ -31,6 +34,7 @@ class MOCBOT(commands.Bot):
             self.avatar_url = f"https://cdn.discordapp.com/embed/avatars/{int(self.user.discriminator) % 5}.png"
 
     def setup_logger(self):
+        print("setting up logger")
         logging.config.dictConfig(config["LOGGING"])
         self.logger = logging.getLogger(__name__)
         for handler in logging.getLogger().handlers:
@@ -41,8 +45,14 @@ class MOCBOT(commands.Bot):
     async def load_cog_manager(self):
         await self.load_extension("lib.cogs.Cogs")
 
+    async def main(self):
+        await asyncio.gather(
+        super().start(config["TOKENS"][self.mode], reconnect=True),
+        Socket.start(self)
+    )
+
     def run(self):
-        super().run(config["TOKENS"][self.mode], log_handler=None)
+        asyncio.run(self.main())
 
     def create_embed(self, title, description, colour):
         embed = discord.Embed(title=None, description=description,
