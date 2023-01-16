@@ -5,7 +5,7 @@ from discord import app_commands, Member, Object, Interaction, Forbidden
 from typing import Optional
 from lib.bot import DEV_GUILD
 from enum import Enum
-from lib.socket import Socket
+from lib.socket.Socket import Socket
 import logging
 
 class VerificationStatus(Enum):
@@ -15,7 +15,6 @@ class VerificationStatus(Enum):
 
 class Verification(commands.Cog):
     def __init__(self, bot):
-        Verification.bot = bot 
         self.bot = bot
         self.logger = logging.getLogger(__name__)
 
@@ -25,36 +24,31 @@ class Verification(commands.Cog):
     async def cog_load(self):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
 
-    # def ensure_verification_enabled(fn):
-    #     def wrapper(member: Member, captcha=None):
-    #         settings = API.get(f'/settings/{member.guild.id}')
-    #         if bool(settings.get("Verification", None) if settings is not None else False):
-    #             result = fn(member, captcha=None)
-    #         return result
-    #     return wrapper
-
     @staticmethod
-    async def web_verify_user(member: Member, captcha=None):
-        settings = API.get(f'/settings/{member.guild.id}')
-        if bool(settings.get("Verification", None) if settings is not None else False):
-            return Socket.emit_to_client("on_verify_error")
+    async def web_verify_user(userID: str, guildID:str, captcha=None):
+        settings = API.get(f'/settings/{guildID}')
+        guild = await Verification.bot.fetch_guild(guildID)
+        member = await guild.fetch_member(userID)
+        if not bool(settings.get("Verification", None) if settings is not None else False):
+            return await Socket.emit("verify_error", namespace="/verification")
         match await Verification.verify_user(member, settings.get("Verification"), captcha):
             case VerificationStatus.SUCCESS:
-                Socket.emit_to_client("on_verify_success")
+                await Socket.emit("verify_success", namespace="/verification")
             case VerificationStatus.LOCKDOWN:
-                Socket.emit_to_client("on_verify_lockdown")
+                await Socket.emit("verify_lockdown", namespace="/verification")
             case VerificationStatus.ERROR:
-                Socket.emit_to_client("on_verify_error")
+                await Socket.emit("verify_error", namespace="/verification")
 
     @staticmethod
     async def verify_user(member: Member, settings: Object, captcha=None):
-        if int(settings.get("VerificationRoleID")) in [role.id for role in member.roles]:
+        if int(settings.get("VerificationRoleID")) in [role.id for role in member.roles] and len(member.roles) == 2:
             if captcha is None or (captcha is not None and captcha["score"] >= 0.7):
-                await member.remove_roles(Object(id=settings.get("VerificationRoleID")), reason="User successfully verified")
-                await member.add_roles(Object(id=settings.get("VerifiedRoleID")), reason="User successfully verified")
+                await member.remove_roles(Object(id=settings.get("VerificationRoleID")), reason=f"{member} successfully verified")
+                await member.add_roles(Object(id=settings.get("VerifiedRoleID")), reason=f"{member} successfully verified")
                 await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been successfully verified in **{member.guild}**. Enjoy your stay!", None))
                 return VerificationStatus.SUCCESS
             else:
+                await member.remove_roles(Object(id=settings.get("VerificationRoleID")), reason=f"{member} placed in lockdown")
                 await member.add_roles(Object(id=settings.get("LockdownRoleID")))
                 await member.send("You have successfully been locked down.")
                 return VerificationStatus.LOCKDOWN
@@ -98,4 +92,5 @@ class Verification(commands.Cog):
                 await interaction.followup.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {interaction.guild}!**\n\n To get verified, please click [here](http://localhost:3000/verify/{interaction.guild.id}/{interaction.user.id})", None))
 
 async def setup(bot):
+    Verification.bot = bot
     await bot.add_cog(Verification(bot))
