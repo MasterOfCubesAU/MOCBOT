@@ -41,6 +41,7 @@ class Verification(commands.Cog):
 
     @staticmethod
     async def verify_user(member: Member, settings: Object, captcha=None):
+        # TODO: Call API to update/delete user based on returned enum
         if int(settings.get("VerificationRoleID")) in [role.id for role in member.roles] and len(member.roles) == 2:
             if captcha is None or (captcha is not None and captcha["score"] >= 0.7):
                 await member.remove_roles(Object(id=settings.get("VerificationRoleID")), reason=f"{member} successfully verified")
