@@ -51,7 +51,12 @@ class MOCBOT(commands.Bot):
     )
 
     def run(self):
-        asyncio.run(self.main())
+        try:
+            asyncio.run(self.main())
+        except KeyboardInterrupt:
+            self.logger.info(f"MOCBOT is cleaning up processes.")
+        finally:
+            self.logger.info(f"MOCBOT has been shut down gracefully.")
 
     def create_embed(self, title, description, colour):
         embed = discord.Embed(title=None, description=description,
