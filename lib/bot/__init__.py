@@ -34,7 +34,6 @@ class MOCBOT(commands.Bot):
             self.avatar_url = f"https://cdn.discordapp.com/embed/avatars/{int(self.user.discriminator) % 5}.png"
 
     def setup_logger(self):
-        print("setting up logger")
         logging.config.dictConfig(config["LOGGING"])
         self.logger = logging.getLogger(__name__)
         for handler in logging.getLogger().handlers:
