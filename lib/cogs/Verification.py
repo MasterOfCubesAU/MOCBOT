@@ -61,9 +61,12 @@ class Verification(commands.Cog):
             else:
                 raise e
         else:
-            channel = await member.guild.fetch_channel(int(data.get("ChannelID")))
-            message = await channel.fetch_message(int(data.get("MessageID")))
-            await message.delete()
+            try:
+                channel = await member.guild.fetch_channel(int(data.get("ChannelID")))
+                message = await channel.fetch_message(int(data.get("MessageID")))
+                await message.delete()
+            except (HTTPException, Forbidden):
+                pass
         API.delete(f'/verification/{member.guild.id}/{member.id}')
         try:
             await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been denied access in **{member.guild}**{' by {}'.format(admin.mention)}.", None))
@@ -78,7 +81,21 @@ class Verification(commands.Cog):
             if kwargs.get("captcha") is None or (kwargs.get("captcha") is not None and kwargs.get("captcha")["score"] >= 0.7):
                 try:
                     if(int(settings.get("LockdownRoleID")) in member_role_ids):
-                          await member.remove_roles(Object(id=settings.get("LockdownRoleID")))
+                        await member.remove_roles(Object(id=settings.get("LockdownRoleID")))
+                        try:
+                            data = API.get(f'/verification/{member.guild.id}/{member.id}')
+                        except HTTPError as e:
+                            if e.response.status_code == 404:
+                                pass
+                            else:
+                                raise e
+                        else:
+                            try:
+                                channel = await member.guild.fetch_channel(int(data.get("ChannelID")))
+                                message = await channel.fetch_message(int(data.get("MessageID")))
+                                await message.delete()
+                            except (HTTPException, Forbidden):
+                                pass
                     if(int(settings.get("VerificationRoleID")) in member_role_ids):
                         await member.remove_roles(Object(id=settings.get("VerificationRoleID")), reason=f"{member} successfully verified")
                     await member.add_roles(Object(id=settings.get("VerifiedRoleID")), reason=f"{member} successfully verified")
