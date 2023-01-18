@@ -29,13 +29,14 @@ class Verification(commands.Cog):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
 
     @staticmethod
-    async def web_verify_user(userID: str, guildID:str, captcha=None):
+    async def web_verify_user(userID: str, guildID:str, **kwargs):
         settings = API.get(f'/settings/{guildID}')
         guild = await Verification.bot.fetch_guild(guildID)
         member = await guild.fetch_member(userID)
+        admin = await guild.fetch_member(kwargs.get('adminID')) if kwargs.get('adminID') else None
         if not bool(settings.get("Verification", None) if settings is not None else False):
             return await Socket.emit("verify_error", namespace="/verification")
-        match await Verification.verify_user(member, settings.get("Verification"), captcha):
+        match await Verification.verify_user(member, settings.get("Verification"), admin=admin, **kwargs):
             case VerificationStatus.SUCCESS:
                 await Socket.emit("verify_success", namespace="/verification")
             case VerificationStatus.LOCKDOWN:
@@ -44,17 +45,48 @@ class Verification(commands.Cog):
                 await Socket.emit("verify_error", namespace="/verification")
 
     @staticmethod
-    async def verify_user(member: Member, settings: Object, captcha=None):
-        if int(settings.get("VerificationRoleID")) in [role.id for role in member.roles] and len(member.roles) == 2:
-            if captcha is None or (captcha is not None and captcha["score"] >= 0.7):
+    async def web_kick_user(userID: str, guildID:str, adminID: str):
+        guild = await Verification.bot.fetch_guild(guildID)
+        member = await guild.fetch_member(userID)
+        admin = await guild.fetch_member(adminID)
+        await Verification.kick_user(member, admin=admin)
+
+    @staticmethod
+    async def kick_user(member: Member, admin:Member):
+        try:
+            data = API.get(f'/verification/{member.guild.id}/{member.id}')
+        except HTTPError as e:
+            if e.response.status_code == 404:
+                pass
+            else:
+                raise e
+        else:
+            channel = await member.guild.fetch_channel(int(data.get("ChannelID")))
+            message = await channel.fetch_message(int(data.get("MessageID")))
+            await message.delete()
+        API.delete(f'/verification/{member.guild.id}/{member.id}')
+        try:
+            await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been denied access in **{member.guild}**{' by {}'.format(admin.mention)}.", None))
+        except (HTTPException, Forbidden):
+            pass
+        await member.kick(reason=f"Denied access by {admin}")
+
+    @staticmethod
+    async def verify_user(member: Member, settings: Object, **kwargs):
+        member_role_ids = [role.id for role in member.roles]
+        if (int(settings.get("VerificationRoleID")) in member_role_ids or int(settings.get("LockdownRoleID")) in member_role_ids) and len(member_role_ids) == 2:
+            if kwargs.get("captcha") is None or (kwargs.get("captcha") is not None and kwargs.get("captcha")["score"] >= 0.7):
                 try:
-                    await member.remove_roles(Object(id=settings.get("VerificationRoleID")), reason=f"{member} successfully verified")
+                    if(int(settings.get("LockdownRoleID")) in member_role_ids):
+                          await member.remove_roles(Object(id=settings.get("LockdownRoleID")))
+                    if(int(settings.get("VerificationRoleID")) in member_role_ids):
+                        await member.remove_roles(Object(id=settings.get("VerificationRoleID")), reason=f"{member} successfully verified")
                     await member.add_roles(Object(id=settings.get("VerifiedRoleID")), reason=f"{member} successfully verified")
                 except HTTPException:
                     return VerificationStatus.ERROR
                 else:
                     try:
-                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been successfully verified in **{member.guild}**. Enjoy your stay!", None))
+                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been successfully verified in **{member.guild}**{' by {}'.format(kwargs.get('admin').mention) if kwargs.get('admin') != None else ''}. Enjoy your stay!", None))
                     except (HTTPException, Forbidden):
                         pass
                     API.delete(f'/verification/{member.guild.id}/{member.id}')
@@ -72,26 +104,34 @@ class Verification(commands.Cog):
                     view.add_item(Button(label="View dashboard",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/{member.guild.id}/manage/verification"))
                     message = await channel.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"The user {member.mention} has recently attempted to join your server and has been placed into lockdown. This usually indicates that the user is suspicious, however, this may be a false call and manual admin approval is required.\n\n **To manually verify this user, please visit the MOCBOT Dashboard below.**", None), view=view)
                     try:
-                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been placed into lockdown in the **{member.guild}** server. This occurs because you did not pass verification, however this can be a false call. If you believe this is a mistake, please contact a server moderator for approval.", None))
+                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been placed into lockdown in the **{member.guild}** server.\n\nThis occurs because you did not pass verification. This may be a false call however. If you believe this is a mistake, please contact a server moderator for approval.", None))
                     except (HTTPException, Forbidden):
                         pass 
-                    API.patch(f'/verification/{member.guild.id}/{member.id}', {"MessageID": message.id, "ChannelID": channel.id})
+                    API.patch(f'/verification/{member.guild.id}/{member.id}', {"MessageID": str(message.id), "ChannelID": str(channel.id)})
                     return VerificationStatus.LOCKDOWN
         return VerificationStatus.ERROR
                     
     @commands.Cog.listener()
     async def on_member_join(self, member: Member):
-        settings = API.get(f'/settings/{member.guild.id}').get("Verification")
+        try:
+            settings = API.get(f'/settings/{member.guild.id}').get("Verification")
+        except HTTPError as e:
+            if e.response.status_code == 404 :
+                return
+            else:
+                raise e 
         if settings is None:
             return
-        # try:
-        #     user = API.get(f'/verification/{member.guild.id}/{member.id}')
-        # except HTTPError as e:
-        #     if e.response.status_code == 404:
-        #         pass
-        #     else:
-        #         raise e 
-        # else:
+        try:
+            user = API.get(f'/verification/{member.guild.id}/{member.id}')
+        except HTTPError as e:
+            if e.response.status_code in [404, 429] :
+                pass
+            else:
+                raise e 
+        else:
+            if all([user.get("MessageID"), user.get("ChannelID")]):
+                return await member.add_roles(Object(id=settings.get("LockdownRoleID")))
         #     user_join_time = user.get("JoinTime") if user is not None else None
         #     if user_join_time is not None and (datetime.datetime.fromtimestamp(user_join_time) + datetime.timedelta(days=7).timestamp()) < datetime.now():
         #         guild = self.bot.get_guild(member.guild.id)
@@ -131,6 +171,6 @@ class Verification(commands.Cog):
             else:
                 await interaction.followup.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {interaction.guild}!**\n\n To get verified, please click [here](http://localhost:3000/verify/{interaction.guild.id}/{interaction.user.id}).", None))
 
-async def setup(bot):
+async def setup(bot: commands.Bot):
     Verification.bot = bot
     await bot.add_cog(Verification(bot))
