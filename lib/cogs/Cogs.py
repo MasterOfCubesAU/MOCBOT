@@ -21,7 +21,8 @@ class Cogs(commands.Cog):
             for cog in [path.split("\\")[-1][:-3] if os.name == "nt" else path.split("\\")[-1][:-3].split("/")[-1] for path in glob("./lib/cogs/*.py")]:
                 if cog not in ["Cogs", "ErrorHandler"]:
                     self.disabled_cogs.append(cog)
-        self.disabled_cogs.extend(["Template"] + config["DISABLED_COGS"])
+        else:
+            self.disabled_cogs.extend(["Template"] + config["DISABLED_COGS"])
 
     async def cog_load(self):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
