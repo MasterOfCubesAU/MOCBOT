@@ -10,8 +10,8 @@ from requests.exceptions import HTTPError
 import logging
 from discord.ui import Button, View
 import discord
-import asyncio
 import datetime
+import time
 
 class VerificationStatus(Enum):
     SUCCESS = 1,
@@ -123,7 +123,7 @@ class Verification(commands.Cog):
                     view.add_item(Button(label="View dashboard",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/{member.guild.id}/manage/verification"))
                     message = await channel.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"The user {member.mention} has recently attempted to join your server and has been placed into lockdown. This usually indicates that the user is suspicious, however, this may be a false call and manual admin approval is required.\n\n **To manually verify this user, please visit the MOCBOT Dashboard below.**", None), view=view)
                     try:
-                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been placed into lockdown in the **{member.guild}** server.\n\nThis occurs because you did not pass verification. This may be a false call however. If you believe this is a mistake, please contact a server moderator for approval.", None))
+                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been placed into lockdown in the **{member.guild}** server.\n\nThis occurs because you did not pass verification. This may be a false call however. If you believe this is a mistake, please contact a server moderator for approval.\n\nServer admin: {guild.owner.mention}", None))
                     except (HTTPException, Forbidden):
                         pass 
                     API.patch(f'/verification/{member.guild.id}/{member.id}', {"MessageID": str(message.id), "ChannelID": str(channel.id)})
@@ -160,13 +160,40 @@ class Verification(commands.Cog):
                     return await guild.kick(member, reason="User in lockdown for more than 7 days.")
                 else:
                     return await member.add_roles(Object(id=settings.get("LockdownRoleID")))
-
         await member.add_roles(Object(id=settings.get("VerificationRoleID")))
         API.post(f'/verification/{member.guild.id}/{member.id}', {})
         try:
             await member.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {member.guild}!**\n\n To get verified, please click [here](http://localhost:3000/verify/{member.guild.id}/{member.id}).", None))
         except Forbidden:
             pass 
+
+    @commands.Cog.listener()
+    async def on_member_remove(self, member: Member):
+        try:
+            settings = API.get(f'/settings/{member.guild.id}').get("Verification")
+        except HTTPError as e:
+            if e.response.status_code == 404 :
+                return
+            else:
+                raise e 
+        if settings is None:
+            return
+        try:
+            user = API.get(f'/verification/{member.guild.id}/{member.id}')
+        except HTTPError as e:
+            if e.response.status_code in [404, 429]:
+                pass
+            else:
+                raise e 
+        else:
+            if not all([user.get("MessageID"), user.get("ChannelID")]):
+                try:
+                    user = API.delete(f'/verification/{member.guild.id}/{member.id}')
+                except HTTPError as e:
+                    if e.response.status_code == 404:
+                        pass
+                    else:
+                        raise e 
 
     @app_commands.command(name="verify", description="Re-issues the verify link. If a user is provided (admin only), that user will be verified at once.")
     @app_commands.guilds(DEV_GUILD)
@@ -194,21 +221,21 @@ class Verification(commands.Cog):
     def check_user_lockdown_time(self, join_time):
         return (datetime.datetime.fromtimestamp(int(join_time)) + datetime.timedelta(days=7)) < datetime.datetime.now()
 
-    @tasks.loop(seconds=10)
+    @tasks.loop(time=[datetime.time(0, 11, tzinfo=datetime.timezone(datetime.timedelta(hours=+11 if time.localtime().tm_isdst else +10)))])
     async def check_lockdown_users_loop(self):
         await self.bot.wait_until_ready()
         users = API.get('/verification')
         for user in users:
             user_join_time = user.get("JoinTime")
-            if user_join_time is not None and self.check_user_lockdown_time(user_join_time):
+            if user_join_time is not None and self.check_user_lockdown_time(user_join_time) and all([user.get("MessageID"), user.get("ChannelID")]):
                 try:
-                    guild = self.bot.get_guild(user.get("GuildID"))
-                    member = guild.get_member(user.get("UserID"))
+                    guild = await self.bot.fetch_guild(user.get("GuildID"))
+                    member = await guild.fetch_member(user.get("UserID"))
                 except NotFound:
                     pass 
                 else:
                     try:
-                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been in lockdown in the **{member.guild}** server for more than 7 days, and thus have been kicked. Please contact {guild.owner} if you believe this is a mistake.", None))
+                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been in lockdown in the **{member.guild}** server for more than 7 days, and thus have been kicked. Please contact the server owner if you believe this is a mistake.", None))
                     except (HTTPException, Forbidden):
                         pass 
                     await guild.kick(member, reason="User in lockdown for more than 7 days.")
