@@ -3,8 +3,8 @@ from discord import app_commands
 from lib.bot import config, MOC_GUILD, DEV_GUILD
 import discord
 import logging
-
 from glob import glob
+from lib.bot import config
 import os
 import traceback
 
@@ -22,7 +22,7 @@ class Cogs(commands.Cog):
                 if cog not in ["Cogs", "ErrorHandler"]:
                     self.disabled_cogs.append(cog)
         else:
-            self.disabled_cogs.append("Template")
+            self.disabled_cogs.extend(["Template"] + config["DISABLED_COGS"])
 
     async def cog_load(self):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
