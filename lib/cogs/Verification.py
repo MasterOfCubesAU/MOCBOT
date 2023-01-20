@@ -1,7 +1,7 @@
 
-from discord.ext import commands
+from discord.ext import commands, tasks
 from utils.APIHandler import API
-from discord import app_commands, Member, Object, Interaction, Forbidden, HTTPException
+from discord import app_commands, Member, Object, Interaction, Forbidden, HTTPException, NotFound
 from typing import Optional
 from lib.bot import DEV_GUILD
 from enum import Enum
@@ -10,6 +10,7 @@ from requests.exceptions import HTTPError
 import logging
 from discord.ui import Button, View
 import discord
+import asyncio
 import datetime
 
 class VerificationStatus(Enum):
@@ -27,6 +28,7 @@ class Verification(commands.Cog):
 
     async def cog_load(self):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
+        self.check_lockdown_users_loop.start()
 
     @staticmethod
     async def web_verify_user(userID: str, guildID:str, **kwargs):
@@ -78,7 +80,7 @@ class Verification(commands.Cog):
     async def verify_user(member: Member, settings: Object, **kwargs):
         member_role_ids = [role.id for role in member.roles]
         if (int(settings.get("VerificationRoleID")) in member_role_ids or int(settings.get("LockdownRoleID")) in member_role_ids) and len(member_role_ids) == 2:
-            if kwargs.get("captcha") is None or (kwargs.get("captcha") is not None and kwargs.get("captcha")["score"] >= 0.7):
+            if kwargs.get("captcha") is None or (kwargs.get("captcha") is not None and kwargs.get("captcha")["score"] >= 1.1):
                 try:
                     if(int(settings.get("LockdownRoleID")) in member_role_ids):
                         await member.remove_roles(Object(id=settings.get("LockdownRoleID")))
@@ -142,22 +144,23 @@ class Verification(commands.Cog):
         try:
             user = API.get(f'/verification/{member.guild.id}/{member.id}')
         except HTTPError as e:
-            if e.response.status_code in [404, 429] :
+            if e.response.status_code in [404, 429]:
                 pass
             else:
                 raise e 
         else:
             if all([user.get("MessageID"), user.get("ChannelID")]):
-                return await member.add_roles(Object(id=settings.get("LockdownRoleID")))
-        #     user_join_time = user.get("JoinTime") if user is not None else None
-        #     if user_join_time is not None and (datetime.datetime.fromtimestamp(user_join_time) + datetime.timedelta(days=7).timestamp()) < datetime.now():
-        #         guild = self.bot.get_guild(member.guild.id)
-        #         try:
-        #             await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been in lockdown in the {member.guild} server for more than 7 days, and thus have been kicked. Please contact {guild.owner} if you believe this is a mistake.", None))
-        #         except (HTTPException, Forbidden):
-        #             pass 
-        #         await guild.kick(member, reason="User in lockdown for more than 7 days.")
-        # finally:
+                user_join_time = user.get("JoinTime")
+                if user_join_time is not None and self.check_user_lockdown_time(user_join_time):
+                    guild = self.bot.get_guild(user.get("GuildID"))
+                    try:
+                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been in lockdown in the **{member.guild}** server for more than 7 days, and thus have been kicked. Please contact {guild.owner.mention} if you believe this is a mistake.", None))
+                    except (HTTPException, Forbidden):
+                        pass 
+                    return await guild.kick(member, reason="User in lockdown for more than 7 days.")
+                else:
+                    return await member.add_roles(Object(id=settings.get("LockdownRoleID")))
+
         await member.add_roles(Object(id=settings.get("VerificationRoleID")))
         API.post(f'/verification/{member.guild.id}/{member.id}', {})
         try:
@@ -187,6 +190,28 @@ class Verification(commands.Cog):
                 await interaction.followup.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"You are already verified in this server.", None))
             else:
                 await interaction.followup.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {interaction.guild}!**\n\n To get verified, please click [here](http://localhost:3000/verify/{interaction.guild.id}/{interaction.user.id}).", None))
+
+    def check_user_lockdown_time(self, join_time):
+        return (datetime.datetime.fromtimestamp(int(join_time)) + datetime.timedelta(days=7)) < datetime.datetime.now()
+
+    @tasks.loop(seconds=10)
+    async def check_lockdown_users_loop(self):
+        await self.bot.wait_until_ready()
+        users = API.get('/verification')
+        for user in users:
+            user_join_time = user.get("JoinTime")
+            if user_join_time is not None and self.check_user_lockdown_time(user_join_time):
+                try:
+                    guild = self.bot.get_guild(user.get("GuildID"))
+                    member = guild.get_member(user.get("UserID"))
+                except NotFound:
+                    pass 
+                else:
+                    try:
+                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been in lockdown in the **{member.guild}** server for more than 7 days, and thus have been kicked. Please contact {guild.owner} if you believe this is a mistake.", None))
+                    except (HTTPException, Forbidden):
+                        pass 
+                    await guild.kick(member, reason="User in lockdown for more than 7 days.")
 
 async def setup(bot: commands.Bot):
     Verification.bot = bot
