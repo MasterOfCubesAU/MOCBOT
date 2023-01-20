@@ -3,8 +3,8 @@ from discord import app_commands
 from lib.bot import config, MOC_GUILD, DEV_GUILD
 import discord
 import logging
-
 from glob import glob
+from lib.bot import config
 import os
 import traceback
 
@@ -16,13 +16,12 @@ class Cogs(commands.Cog):
         self.unloaded_cogs = []
         self.logger = logging.getLogger(__name__)
 
-        if self.bot.is_dev:
-            self.logger.warn("--dev flag activated. Additional cogs will not be loaded.")
-            for cog in [path.split("\\")[-1][:-3] if os.name == "nt" else path.split("\\")[-1][:-3].split("/")[-1] for path in glob("./lib/cogs/*.py")]:
-                if cog not in ["Cogs", "ErrorHandler"]:
-                    self.disabled_cogs.append(cog)
-        else:
-            self.disabled_cogs.append("Template")
+        # if self.bot.is_dev:
+        #     self.logger.warn("--dev flag activated. Additional cogs will not be loaded.")
+        #     for cog in [path.split("\\")[-1][:-3] if os.name == "nt" else path.split("\\")[-1][:-3].split("/")[-1] for path in glob("./lib/cogs/*.py")]:
+        #         if cog not in ["Cogs", "ErrorHandler"]:
+        #             self.disabled_cogs.append(cog)
+        self.disabled_cogs.extend(["Template"] + config["DISABLED_COGS"])
 
     async def cog_load(self):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
