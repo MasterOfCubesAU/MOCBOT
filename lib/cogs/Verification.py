@@ -221,13 +221,12 @@ class Verification(commands.Cog):
     def check_user_lockdown_time(self, join_time):
         return (datetime.datetime.fromtimestamp(int(join_time)) + datetime.timedelta(days=7)) < datetime.datetime.now()
 
-    @tasks.loop(time=[datetime.time(0, 11, tzinfo=datetime.timezone(datetime.timedelta(hours=+11 if time.localtime().tm_isdst else +10)))])
+    @tasks.loop(time=[datetime.time(0, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=+11 if time.localtime().tm_isdst else +10)))])
     async def check_lockdown_users_loop(self):
-        await self.bot.wait_until_ready()
         users = API.get('/verification')
         for user in users:
             user_join_time = user.get("JoinTime")
-            if user_join_time is not None and self.check_user_lockdown_time(user_join_time) and all([user.get("MessageID"), user.get("ChannelID")]):
+            if user_join_time is not None and self.check_user_lockdown_time(user_join_time):
                 try:
                     guild = await self.bot.fetch_guild(user.get("GuildID"))
                     member = await guild.fetch_member(user.get("UserID"))
@@ -235,7 +234,10 @@ class Verification(commands.Cog):
                     pass 
                 else:
                     try:
-                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been in lockdown in the **{member.guild}** server for more than 7 days, and thus have been kicked. Please contact the server owner if you believe this is a mistake.", None))
+                        if all([user.get("MessageID"), user.get("ChannelID")]):
+                            await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been in lockdown in the **{member.guild}** server for more than 7 days, and thus have been kicked. Please contact the server owner if you believe this is a mistake.", None))
+                        else:
+                            await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You were not verified within 7 days of joining the **{member.guild}** server, and was thus kicked. If you wish to be a member of the server, please verify upon joining.", None))
                     except (HTTPException, Forbidden):
                         pass 
                     await guild.kick(member, reason="User in lockdown for more than 7 days.")
