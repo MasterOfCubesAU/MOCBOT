@@ -80,7 +80,7 @@ class Verification(commands.Cog):
     async def verify_user(member: Member, settings: Object, **kwargs):
         member_role_ids = [role.id for role in member.roles]
         if (int(settings.get("VerificationRoleID")) in member_role_ids or int(settings.get("LockdownRoleID")) in member_role_ids) and len(member_role_ids) == 2:
-            if kwargs.get("captcha") is None or (kwargs.get("captcha") is not None and kwargs.get("captcha")["score"] >= 1.1):
+            if kwargs.get("captcha") is None or (kwargs.get("captcha") is not None and kwargs.get("captcha")["score"] >= 0.7):
                 try:
                     if(int(settings.get("LockdownRoleID")) in member_role_ids):
                         await member.remove_roles(Object(id=settings.get("LockdownRoleID")))
@@ -123,7 +123,7 @@ class Verification(commands.Cog):
                     view.add_item(Button(label="View dashboard",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/{member.guild.id}/manage/verification"))
                     message = await channel.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"The user {member.mention} has recently attempted to join your server and has been placed into lockdown. This usually indicates that the user is suspicious, however, this may be a false call and manual admin approval is required.\n\n **To manually verify this user, please visit the MOCBOT Dashboard below.**", None), view=view)
                     try:
-                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been placed into lockdown in the **{member.guild}** server.\n\nThis occurs because you did not pass verification. This may be a false call however. If you believe this is a mistake, please contact a server moderator for approval.\n\nServer admin: {guild.owner.mention}", None))
+                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been placed into lockdown in the **{member.guild}** server.\n\nThis occurs because you did not pass verification. This may be a false call however. If you believe this is a mistake, please contact a server moderator for approval.", None))
                     except (HTTPException, Forbidden):
                         pass 
                     API.patch(f'/verification/{member.guild.id}/{member.id}', {"MessageID": str(message.id), "ChannelID": str(channel.id)})
