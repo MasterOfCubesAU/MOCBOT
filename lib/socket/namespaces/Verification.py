@@ -12,7 +12,7 @@ with open("./config.yml", "r") as f:
 class Verification(socketio.AsyncNamespace):
     async def on_connect(self, socketID, environ):
         socketKey = environ.get("HTTP_SOCKET_KEY")
-        if socketKey is None or (socketKey is not None and sha256(socketKey.encode('utf-8')).hexdigest() != config["SOCKET_KEY"]):
+        if socketKey is None or (socketKey is not None and sha256(socketKey.encode('utf-8')).hexdigest() != config["SOCKET"]["KEY"]):
             logging.getLogger(__name__).warning(f"Unauthorised connection from {environ.get('REMOTE_ADDR', None)}")
             raise ConnectionRefusedError("Unauthorised")
 

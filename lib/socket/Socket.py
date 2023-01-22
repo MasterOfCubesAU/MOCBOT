@@ -5,16 +5,20 @@ from aiohttp import web
 import socketio
 import logging
 from discord.ext import commands
+import yaml
 
-SIO = socketio.AsyncServer(cors_allowed_origins = '*')
+with open("./config.yml", "r") as f:
+    config = yaml.safe_load(f)
+
+SIO = socketio.AsyncServer(cors_allowed_origins = [f'http://[{config["SOCKET"]["HOST"]}:{config["SOCKET"]["PORT"]}'])
 APP = web.Application()
 RUNNER = web.AppRunner(APP)
 SIO.attach(APP)
 
 class Socket():
     
-    HOST = "0.0.0.0"
-    PORT = 65534
+    HOST = config["SOCKET"]["HOST"]
+    PORT = config["SOCKET"]["PORT"]
 
     async def start(bot: commands.Bot):
         await bot.wait_until_ready()
