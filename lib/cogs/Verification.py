@@ -221,7 +221,7 @@ class Verification(commands.Cog):
     def user_verification_elapsed(self, join_time):
         return (datetime.datetime.fromtimestamp(int(join_time)) + datetime.timedelta(days=7)) < datetime.datetime.now()
 
-    @tasks.loop(time=[datetime.time(10, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=+11 if time.localtime().tm_isdst else +10)))])
+    @tasks.loop(time=[datetime.time(0, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=+11 if time.localtime().tm_isdst else +10)))])
     async def check_lockdown_users_loop(self):
         users = API.get('/verification')
         for user in users:
