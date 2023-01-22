@@ -1,3 +1,4 @@
+import asyncio
 from discord.ext import commands
 from discord import app_commands
 import logging.config
@@ -5,6 +6,8 @@ import logging
 import discord
 import yaml
 import os
+
+from lib.socket.Socket import Socket
 
 with open("./config.yml", "r") as f:
     config = yaml.safe_load(f)
@@ -41,8 +44,19 @@ class MOCBOT(commands.Bot):
     async def load_cog_manager(self):
         await self.load_extension("lib.cogs.Cogs")
 
+    async def main(self):
+        await asyncio.gather(
+        super().start(config["TOKENS"][self.mode], reconnect=True),
+        Socket.start(self)
+    )
+
     def run(self):
-        super().run(config["TOKENS"][self.mode], log_handler=None)
+        try:
+            asyncio.run(self.main())
+        except KeyboardInterrupt:
+            self.logger.info(f"MOCBOT is cleaning up processes.")
+        finally:
+            self.logger.info(f"MOCBOT has been shut down gracefully.")
 
     def create_embed(self, title, description, colour):
         embed = discord.Embed(title=None, description=description,
