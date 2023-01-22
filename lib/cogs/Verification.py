@@ -80,7 +80,7 @@ class Verification(commands.Cog):
     async def verify_user(member: Member, settings: Object, **kwargs):
         member_role_ids = [role.id for role in member.roles]
         if (int(settings.get("VerificationRoleID")) in member_role_ids or int(settings.get("LockdownRoleID")) in member_role_ids) and len(member_role_ids) == 2:
-            if kwargs.get("captcha") is None or (kwargs.get("captcha") is not None and kwargs.get("captcha")["score"] >= 1.1):
+            if kwargs.get("captcha") is None or (kwargs.get("captcha") is not None and kwargs.get("captcha")["score"] >= 0.7):
                 try:
                     if(int(settings.get("LockdownRoleID")) in member_role_ids):
                         await member.remove_roles(Object(id=settings.get("LockdownRoleID")))
@@ -221,16 +221,14 @@ class Verification(commands.Cog):
     def user_verification_elapsed(self, join_time):
         return (datetime.datetime.fromtimestamp(int(join_time)) + datetime.timedelta(days=7)) < datetime.datetime.now()
 
-    @tasks.loop(time=[datetime.time(18, 21, tzinfo=datetime.timezone(datetime.timedelta(hours=+11 if time.localtime().tm_isdst else +10)))])
+    @tasks.loop(time=[datetime.time(10, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=+11 if time.localtime().tm_isdst else +10)))])
     async def check_lockdown_users_loop(self):
         users = API.get('/verification')
         for user in users:
             user_join_time = user.get("JoinTime")
             if user_join_time is not None and self.user_verification_elapsed(user_join_time):
                 guild = self.bot.get_guild(int(user.get("GuildID")))
-                print(guild)
                 member = guild.get_member(int(user.get("UserID"))) if guild is not None else None
-                print(member)
                 if member is None: 
                     continue
                 try:
