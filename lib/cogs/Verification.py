@@ -22,13 +22,13 @@ class Verification(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.logger = logging.getLogger(__name__)
+        self.check_lockdown_users_loop.start()
 
     def reload_cogs(self):
         self.logger.info(f"[COG] Reloaded {self.__class__.__name__}")
 
     async def cog_load(self):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
-        self.check_lockdown_users_loop.start()
 
     @staticmethod
     async def web_verify_user(userID: str, guildID:str, **kwargs):
@@ -151,7 +151,7 @@ class Verification(commands.Cog):
         else:
             if all([user.get("MessageID"), user.get("ChannelID")]):
                 user_join_time = user.get("JoinTime")
-                if user_join_time is not None and self.check_user_lockdown_time(user_join_time):
+                if user_join_time is not None and self.user_verification_elapsed(user_join_time):
                     guild = self.bot.get_guild(user.get("GuildID"))
                     try:
                         await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been in lockdown in the **{member.guild}** server for more than 7 days, and thus have been kicked. Please contact {guild.owner.mention} if you believe this is a mistake.", None))
@@ -218,7 +218,7 @@ class Verification(commands.Cog):
             else:
                 await interaction.followup.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {interaction.guild}!**\n\n To get verified, please click [here](http://localhost:3000/verify/{interaction.guild.id}/{interaction.user.id}).", None))
 
-    def check_user_lockdown_time(self, join_time):
+    def user_verification_elapsed(self, join_time):
         return (datetime.datetime.fromtimestamp(int(join_time)) + datetime.timedelta(days=7)) < datetime.datetime.now()
 
     @tasks.loop(time=[datetime.time(0, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=+11 if time.localtime().tm_isdst else +10)))])
@@ -226,10 +226,10 @@ class Verification(commands.Cog):
         users = API.get('/verification')
         for user in users:
             user_join_time = user.get("JoinTime")
-            if user_join_time is not None and self.check_user_lockdown_time(user_join_time):
+            if user_join_time is not None and self.user_verification_elapsed(user_join_time):
                 try:
-                    guild = await self.bot.fetch_guild(user.get("GuildID"))
-                    member = await guild.fetch_member(user.get("UserID"))
+                    guild = self.bot.get_guild(user.get("GuildID"))
+                    member = await guild.get_member(user.get("UserID"))
                 except NotFound:
                     pass 
                 else:
@@ -242,6 +242,10 @@ class Verification(commands.Cog):
                         pass 
                     await guild.kick(member, reason="User in lockdown for more than 7 days.")
 
+    @check_lockdown_users_loop.before_loop
+    async def before_check_lockdown_users_loop(self):
+        await self.bot.wait_until_ready()
+    
 async def setup(bot: commands.Bot):
     Verification.bot = bot
     await bot.add_cog(Verification(bot))
