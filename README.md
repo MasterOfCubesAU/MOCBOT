@@ -14,6 +14,7 @@ Manage MOCBOT configuration through the [MOCBOT Website](https://mocbot.masterof
 ## Authors
 
 - [@MasterOfCubesAU](https://www.github.com/MasterOfCubesAU)
+- [@samiam](https://github.com/sam1357U)
 
 
 ## Features
