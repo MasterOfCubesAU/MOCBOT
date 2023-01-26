@@ -1,6 +1,7 @@
+import traceback
 from discord.ext import commands
 import logging
-from discord import Member, Object
+from discord import Member, Object, HTTPException
 
 from utils.APIHandler import API
 from requests.exceptions import HTTPError
@@ -25,8 +26,10 @@ class Roles(commands.Cog):
                 raise e 
         if rolesData and rolesData.get("JoinRoles"):
             for roleID in rolesData.get("JoinRoles"):
-                await member.add_roles(Object(id=int(roleID)), reason="Join Role")
-
+                try:
+                    await member.add_roles(Object(id=int(roleID)), reason="Join Role")
+                except HTTPException as e:
+                    continue
 
     @commands.Cog.listener()
     async def on_member_join(self, member: Member):
