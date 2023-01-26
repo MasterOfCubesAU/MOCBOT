@@ -13,6 +13,8 @@ import discord
 import datetime
 import time
 
+from lib.cogs.Roles import Roles
+
 class VerificationStatus(Enum):
     SUCCESS = 1,
     LOCKDOWN = 2,
@@ -41,6 +43,7 @@ class Verification(commands.Cog):
         match await Verification.verify_user(member, settings.get("Verification"), admin=admin, **kwargs):
             case VerificationStatus.SUCCESS:
                 await Socket.emit("verify_success", namespace="/verification")
+                await Roles.give_join_roles(member)
             case VerificationStatus.LOCKDOWN:
                 await Socket.emit("verify_lockdown", namespace="/verification")
             case VerificationStatus.ERROR:
