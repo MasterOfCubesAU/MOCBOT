@@ -113,7 +113,7 @@ class AFK(commands.Cog):
             if data is not None and data != {}:
                 channel = self.bot.get_channel(data["ChannelID"])
                 if member.id != channel.guild.owner_id:
-                    await member.author.edit(nick=data["OldName"], reason="User removed from AFK")
+                    await member.edit(nick=data["OldName"], reason="User removed from AFK")
                 try:
                     message_to_delete = await channel.fetch_message(data["MessageID"])
                 except discord.errors.NotFound:
