@@ -112,8 +112,14 @@ class AFK(commands.Cog):
             data = self.get_user(member.guild.id, member.id)
             if data is not None and data != {}:
                 channel = self.bot.get_channel(data["ChannelID"])
-                message_to_delete = await channel.fetch_message(data["MessageID"])
-                await message_to_delete.delete()
+                if member.id != channel.guild.owner_id:
+                    await member.edit(nick=data["OldName"], reason="User removed from AFK")
+                try:
+                    message_to_delete = await channel.fetch_message(data["MessageID"])
+                except discord.errors.NotFound:
+                    pass
+                else:
+                    await message_to_delete.delete()
                 self.remove_user({"guild_id": member.guild.id, "user_id": member.id})
                 afk_embed = self.bot.create_embed("MOCBOT AFK", f"{member.mention} is now back.", None)
                 afk_embed.set_thumbnail(url=member.display_avatar.url)
