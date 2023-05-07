@@ -166,7 +166,7 @@ class Verification(commands.Cog):
         await member.add_roles(Object(id=settings.get("VerificationRoleID")))
         API.post(f'/verification/{member.guild.id}/{member.id}', {})
         try:
-            await member.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {member.guild}!**\n\n To get verified, please click [here](http://localhost:3000/verify/{member.guild.id}/{member.id}).", None))
+            await member.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {member.guild}!**\n\n To get verified, please click [here](https://mocbot.masterofcubesau.com/verify/{member.guild.id}/{member.id}).", None))
         except Forbidden:
             pass 
 
