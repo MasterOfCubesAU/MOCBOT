@@ -219,7 +219,7 @@ class Verification(commands.Cog):
             if int(verification_roles.get("VerifiedRoleID")) in [role.id for role in interaction.user.roles]:
                 await interaction.followup.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"You are already verified in this server.", None))
             else:
-                await interaction.followup.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {interaction.guild}!**\n\n To get verified, please click [here](http://localhost:3000/verify/{interaction.guild.id}/{interaction.user.id}).", None))
+                await interaction.followup.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {interaction.guild}!**\n\n To get verified, please click [here](https://mocbot.masterofcubesau.com/verify/{interaction.guild.id}/{interaction.user.id}).", None))
 
     def user_verification_elapsed(self, join_time):
         return (datetime.datetime.fromtimestamp(int(join_time)) + datetime.timedelta(days=7)) < datetime.datetime.now()
