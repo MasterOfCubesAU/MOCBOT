@@ -138,7 +138,7 @@ class Verification(commands.Cog):
         try:
             settings = API.get(f'/settings/{member.guild.id}').get("Verification")
         except HTTPError as e:
-            if e.response.status_code == 404 :
+            if e.response.status_code == 404:
                 return
             else:
                 raise e 
@@ -166,7 +166,9 @@ class Verification(commands.Cog):
         await member.add_roles(Object(id=settings.get("VerificationRoleID")))
         API.post(f'/verification/{member.guild.id}/{member.id}', {})
         try:
-            await member.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {member.guild}!**\n\n To get verified, please click [here](https://mocbot.masterofcubesau.com/verify/{member.guild.id}/{member.id}).", None))
+            view=View()
+            view.add_item(Button(label="Verify here",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/verify/{member.guild.id}/{member.id}"))
+            await member.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {member.guild}!**\n\nTo ensure you have access to this server, you must complete a quick one-click verification process to verify you are not a bot.", None), view=view)
         except Forbidden:
             pass 
 
@@ -199,7 +201,6 @@ class Verification(commands.Cog):
                         raise e 
 
     @app_commands.command(name="verify", description="Re-issues the verify link. If a user is provided (admin only), that user will be verified at once.")
-    @app_commands.guilds(DEV_GUILD)
     async def verify(self, interaction: Interaction, user: Optional[Member]):
         await interaction.response.defer(thinking=True, ephemeral=True)
         settings = API.get(f'/settings/{interaction.guild.id}')
@@ -219,7 +220,9 @@ class Verification(commands.Cog):
             if int(verification_roles.get("VerifiedRoleID")) in [role.id for role in interaction.user.roles]:
                 await interaction.followup.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"You are already verified in this server.", None))
             else:
-                await interaction.followup.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {interaction.guild}!**\n\n To get verified, please click [here](http://localhost:3000/verify/{interaction.guild.id}/{interaction.user.id}).", None))
+                view=View()
+                view.add_item(Button(label="Verify here",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/verify/{interaction.guild.id}/{interaction.id}"))
+                await interaction.followup.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {interaction.guild}!**\n\nTo ensure you have access to this server, you must complete a quick one-click verification process to verify you are not a bot.", None), view=view)
 
     def user_verification_elapsed(self, join_time):
         return (datetime.datetime.fromtimestamp(int(join_time)) + datetime.timedelta(days=7)) < datetime.datetime.now()
