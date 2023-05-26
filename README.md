@@ -1,5 +1,5 @@
 
-![](https://mocbot.masterofcubesau.com/static/media/github_banner_slim.png)
+![github_banner_slim](https://github.com/MasterOfCubesAU/MOCBOT/assets/38149391/9f5f850c-cead-4e5e-9cab-ecdf886b6b9a)
 
 [![GPLv3 License](https://img.shields.io/badge/License-GPL%20v3-yellow.svg)](https://opensource.org/licenses/)
 
