@@ -237,14 +237,12 @@ class Verification(commands.Cog):
                 member = guild.get_member(int(user.get("UserID"))) if guild is not None else None
                 if member is None: 
                     continue
-                try:
-                    if all([user.get("MessageID"), user.get("ChannelID")]):
-                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been in lockdown in the **{member.guild}** server for more than 7 days, and thus have been kicked. Please contact the server owner {guild.owner.mention} if you believe this is a mistake. ", None))
-                    else:
-                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You were not verified within 7 days of joining the **{member.guild}** server, and was thus kicked. If you wish to be a member of the server, please verify upon joining.", None))
-                except (HTTPException, Forbidden):
-                    pass 
-                await guild.kick(member, reason="User in lockdown for more than 7 days.")
+                if all([user.get("MessageID"), user.get("ChannelID")]):
+                    await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been in lockdown in the **{member.guild}** server for more than 7 days, and thus have been kicked. Please contact the server owner {guild.owner.mention} if you believe this is a mistake. ", None))
+                    await guild.kick(member, reason="User in lockdown for more than 7 days.")
+                else:
+                    await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You were not verified within 7 days of joining the **{member.guild}** server, and was thus kicked. If you wish to be a member of the server, please verify upon joining.", None))
+                    await guild.kick(member, reason="User failed to verify within 7 days.")
 
     @check_lockdown_users_loop.before_loop
     async def before_check_lockdown_users_loop(self):
