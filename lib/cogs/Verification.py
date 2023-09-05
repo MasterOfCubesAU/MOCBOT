@@ -138,7 +138,7 @@ class Verification(commands.Cog):
         try:
             settings = API.get(f'/settings/{member.guild.id}').get("Verification")
         except HTTPError as e:
-            if e.response.status_code == 404 :
+            if e.response.status_code == 404:
                 return
             else:
                 raise e 
@@ -166,7 +166,9 @@ class Verification(commands.Cog):
         await member.add_roles(Object(id=settings.get("VerificationRoleID")))
         API.post(f'/verification/{member.guild.id}/{member.id}', {})
         try:
-            await member.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {member.guild}!**\n\n To get verified, please click [here](https://mocbot.masterofcubesau.com/verify/{member.guild.id}/{member.id}).", None))
+            view=View()
+            view.add_item(Button(label="Verify here",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/verify/{member.guild.id}/{member.id}"))
+            await member.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {member.guild}!**\n\nTo ensure you have access to this server, you must complete a quick one-click verification process to verify you are not a bot.", None), view=view)
         except Forbidden:
             pass 
 
@@ -199,7 +201,6 @@ class Verification(commands.Cog):
                         raise e 
 
     @app_commands.command(name="verify", description="Re-issues the verify link. If a user is provided (admin only), that user will be verified at once.")
-    @app_commands.guilds(DEV_GUILD)
     async def verify(self, interaction: Interaction, user: Optional[Member]):
         await interaction.response.defer(thinking=True, ephemeral=True)
         settings = API.get(f'/settings/{interaction.guild.id}')
@@ -219,7 +220,9 @@ class Verification(commands.Cog):
             if int(verification_roles.get("VerifiedRoleID")) in [role.id for role in interaction.user.roles]:
                 await interaction.followup.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"You are already verified in this server.", None))
             else:
-                await interaction.followup.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {interaction.guild}!**\n\n To get verified, please click [here](https://mocbot.masterofcubesau.com/verify/{interaction.guild.id}/{interaction.user.id}).", None))
+                view=View()
+                view.add_item(Button(label="Verify here",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/verify/{interaction.guild.id}/{interaction.id}"))
+                await interaction.followup.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {interaction.guild}!**\n\nTo ensure you have access to this server, you must complete a quick one-click verification process to verify you are not a bot.", None), view=view)
 
     def user_verification_elapsed(self, join_time):
         return (datetime.datetime.fromtimestamp(int(join_time)) + datetime.timedelta(days=7)) < datetime.datetime.now()
@@ -234,14 +237,12 @@ class Verification(commands.Cog):
                 member = guild.get_member(int(user.get("UserID"))) if guild is not None else None
                 if member is None: 
                     continue
-                try:
-                    if all([user.get("MessageID"), user.get("ChannelID")]):
-                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been in lockdown in the **{member.guild}** server for more than 7 days, and thus have been kicked. Please contact the server owner {guild.owner.mention} if you believe this is a mistake. ", None))
-                    else:
-                        await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You were not verified within 7 days of joining the **{member.guild}** server, and was thus kicked. If you wish to be a member of the server, please verify upon joining.", None))
-                except (HTTPException, Forbidden):
-                    pass 
-                await guild.kick(member, reason="User in lockdown for more than 7 days.")
+                if all([user.get("MessageID"), user.get("ChannelID")]):
+                    await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been in lockdown in the **{member.guild}** server for more than 7 days, and thus have been kicked. Please contact the server owner {guild.owner.mention} if you believe this is a mistake. ", None))
+                    await guild.kick(member, reason="User in lockdown for more than 7 days.")
+                else:
+                    await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You were not verified within 7 days of joining the **{member.guild}** server, and was thus kicked. If you wish to be a member of the server, please verify upon joining.", None))
+                    await guild.kick(member, reason="User failed to verify within 7 days.")
 
     @check_lockdown_users_loop.before_loop
     async def before_check_lockdown_users_loop(self):
