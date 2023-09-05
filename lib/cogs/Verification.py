@@ -66,12 +66,13 @@ class Verification(commands.Cog):
             else:
                 raise e
         else:
-            try:
-                channel = await member.guild.fetch_channel(int(data.get("ChannelID")))
-                message = await channel.fetch_message(int(data.get("MessageID")))
-                await message.delete()
-            except (HTTPException, Forbidden):
-                pass
+            if data.get("ChannelID") and data.get("MessageID"):
+                try:
+                    channel = await member.guild.fetch_channel(int(data.get("ChannelID")))
+                    message = await channel.fetch_message(int(data.get("MessageID")))
+                    await message.delete()
+                except (HTTPException, Forbidden):
+                    pass
         API.delete(f'/verification/{member.guild.id}/{member.id}')
         try:
             await member.send(embed=Verification.bot.create_embed("MOCBOT VERIFICATION", f"You have been denied access in **{member.guild}**{' by {}'.format(admin.mention)}.", None))
