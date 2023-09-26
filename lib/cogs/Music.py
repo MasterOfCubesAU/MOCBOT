@@ -697,7 +697,7 @@ class Music(commands.Cog):
 
         new_time = player.position + converted_time * 1000
         if new_time > player.current.duration:
-            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The currently playing media only has {await self.formatDuration(player.current.duration - player.position)} time left.", None))
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The currently playing media only has `{await self.formatDuration(player.current.duration - player.position)}` time left.", None))
             return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
         await player.seek(new_time)
