@@ -24,6 +24,7 @@ import requests
 class Music(commands.Cog):
 
     MESSAGE_ALIVE_TIME = 10  # seconds
+    DEFAULT_SEEK_TIME = 15
 
     def __init__(self, bot):
         self.bot = bot
@@ -646,6 +647,51 @@ class Music(commands.Cog):
             return await interaction.followup.send(embed=self.bot.create_embed("MOCBOT MUSIC", f"Lyrics were not found for **{query}**. Try searching again using the format: `(Song Name) - (Artist)`.", None))
         pages = LyricsMenu(source=LyricsPagination(interaction=interaction, lyrics=lyrics_substring(lyrics), song=tracks[0].name, artist=tracks[0].artists[0].name), interaction=interaction)
         await pages.start(await discord.ext.commands.Context.from_interaction(interaction))
+
+    @app_commands.command(name="rewind", description="Rewinds the current song. If a time is not provided, this defaults to 15 seconds.")
+    @app_commands.describe(
+        time="The amount of time to rewind. Examples: 10 | 1:10 | 1:10:10"
+    )
+    @interaction_ensure_voice
+    async def rewind(self, interaction: discord.Interaction, time: typing.Optional[str]):
+        converted_time = Music.convert_to_seconds(time) or self.DEFAULT_SEEK_TIME
+
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+        if player is None or player.current is None:
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The rewind command requires media to be playing first.", None))
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+        if not player.current.is_seekable:
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"This media does not support rewinding or seeking.", None))
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+
+        new_time = max(0, player.position - converted_time * 1000)
+        await player.seek(new_time)
+        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Rewinded {time} to `{await self.formatDuration(new_time * 1000)}`.", None))
+        await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+
+    @app_commands.command(name="fastforward", description="Fast forwards the current song. If a time is not provided, this defaults to 15 seconds.")
+    @app_commands.describe(
+        time="The amount of time to fast forward. Examples: 10 | 1:10 | 1:10:10"
+    )
+    @interaction_ensure_voice
+    async def fastforward(self, interaction: discord.Interaction, time: str):
+        converted_time = Music.convert_to_seconds(time) or self.DEFAULT_SEEK_TIME
+
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+        if player is None or player.current is None:
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"The fast forward command requires media to be playing first.", None))
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+        if not player.current.is_seekable:
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"This media does not support fast forwarding or seeking.", None))
+            return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+
+        new_time = player.position + converted_time * 1000
+        if new_time > player.current.duration:
+            return await self.skip(interaction)
+
+        await player.seek(new_time)
+        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Fast forwarded {time} to `{await self.formatDuration(new_time * 1000)}`.", None))
+        await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
 async def setup(bot):
     await bot.add_cog(Music(bot))
