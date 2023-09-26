@@ -83,11 +83,14 @@ class Verification(commands.Cog):
     @staticmethod
     async def verify_user(member: Member, settings: Object, **kwargs):
         member_role_ids = [role.id for role in member.roles]
-        if (int(settings.get("VerificationRoleID")) in member_role_ids or int(settings.get("LockdownRoleID")) in member_role_ids) and len(member_role_ids) == 2:
+        verification_role_id = settings.get("VerificationRoleID")
+        lockdown_role_id = settings.get("LockdownRoleID")
+
+        if (int(verification_role_id) in member_role_ids or int(lockdown_role_id) in member_role_ids) and len(member_role_ids) == 2:
             if kwargs.get("captcha") is None or (kwargs.get("captcha") is not None and kwargs.get("captcha")["score"] >= 0.7):
                 try:
-                    if(int(settings.get("LockdownRoleID")) in member_role_ids):
-                        await member.remove_roles(Object(id=settings.get("LockdownRoleID")))
+                    if(int(lockdown_role_id) in member_role_ids):
+                        await member.remove_roles(Object(id=lockdown_role_id))
                         try:
                             data = API.get(f'/verification/{member.guild.id}/{member.id}')
                         except HTTPError as e:
@@ -102,8 +105,9 @@ class Verification(commands.Cog):
                                 await message.delete()
                             except (HTTPException, Forbidden):
                                 pass
-                    if(int(settings.get("VerificationRoleID")) in member_role_ids):
-                        await member.remove_roles(Object(id=settings.get("VerificationRoleID")), reason=f"{member} successfully verified")
+                    
+                    if(int(verification_role_id) in member_role_ids):
+                        await member.remove_roles(Object(id=verification_role_id), reason=f"{member} successfully verified")
                     await member.add_roles(Object(id=settings.get("VerifiedRoleID")), reason=f"{member} successfully verified")
                 except HTTPException:
                     return VerificationStatus.ERROR
@@ -145,6 +149,10 @@ class Verification(commands.Cog):
                 raise e 
         if settings is None:
             return
+        
+        if member.bot:
+            return await member.add_roles(Object(id=settings.get("VerificationRoleID")))
+        
         try:
             user = API.get(f'/verification/{member.guild.id}/{member.id}')
         except HTTPError as e:
@@ -170,7 +178,7 @@ class Verification(commands.Cog):
             view=View()
             view.add_item(Button(label="Verify here",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/verify/{member.guild.id}/{member.id}"))
             await member.send(embed=self.bot.create_embed("MOCBOT VERIFICATION", f"**Welcome to {member.guild}!**\n\nTo ensure you have access to this server, you must complete a quick one-click verification process to verify you are not a bot.", None), view=view)
-        except Forbidden:
+        except (HTTPException, Forbidden):
             pass 
 
     @commands.Cog.listener()
