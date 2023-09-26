@@ -656,12 +656,11 @@ class Music(commands.Cog):
     )
     @interaction_ensure_voice
     async def rewind(self, interaction: discord.Interaction, time: typing.Optional[str]):
-        if converted_time := Music.convert_to_seconds(time) == -1:
+        if (converted_time := Music.convert_to_seconds(time)) == -1:
             converted_time = self.DEFAULT_SEEK_TIME
         elif converted_time is None:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Please provide the time to rewind in a suitable format.\nExamples: `10 | 1:10 | 1:10:10`", None))
             return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
-        print(converted_time)
 
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         if player is None or player.current is None:
@@ -682,7 +681,7 @@ class Music(commands.Cog):
     )
     @interaction_ensure_voice
     async def fastforward(self, interaction: discord.Interaction, time: typing.Optional[str]):
-        if converted_time := Music.convert_to_seconds(time) == -1:
+        if (converted_time := Music.convert_to_seconds(time)) == -1:
             converted_time = self.DEFAULT_SEEK_TIME
         elif converted_time is None:
             await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Please provide the time to fast forward in a suitable format.\nExamples: `10 | 1:10 | 1:10:10`", None))
