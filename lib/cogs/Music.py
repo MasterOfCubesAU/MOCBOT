@@ -112,7 +112,9 @@ class Music(commands.Cog):
         del self.players[guild_id]
 
     def convert_to_seconds(time):
-        if re.match("^(?:(?:([01]?\d|2[0-3]):)?([0-5]?\d):)?([0-5]?\d)$", time):
+        if time is None:
+            return None
+        elif re.match("^(?:(?:([01]?\d|2[0-3]):)?([0-5]?\d):)?([0-5]?\d)$", time):
             return sum(int(x) * 60 ** i for i, x in enumerate(reversed(time.split(':')))) 
         else:
             return None
@@ -674,7 +676,7 @@ class Music(commands.Cog):
         time="The amount of time to fast forward. Examples: 10 | 1:10 | 1:10:10"
     )
     @interaction_ensure_voice
-    async def fastforward(self, interaction: discord.Interaction, time: str):
+    async def fastforward(self, interaction: discord.Interaction, time: typing.Optional[str]):
         converted_time = Music.convert_to_seconds(time) or self.DEFAULT_SEEK_TIME
 
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
@@ -690,7 +692,7 @@ class Music(commands.Cog):
             return await self.skip(interaction)
 
         await player.seek(new_time)
-        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Fast forwarded {time} to `{await self.formatDuration(new_time * 1000)}`.", None))
+        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Fast forwarded {time} to `{await self.formatDuration(new_time)}`.", None))
         await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
 async def setup(bot):
