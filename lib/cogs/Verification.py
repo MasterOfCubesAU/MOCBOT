@@ -151,7 +151,7 @@ class Verification(commands.Cog):
             return
         
         if member.bot:
-            return await member.add_roles(Object(id=settings.get("VerificationRoleID")))
+            return await member.add_roles(Object(id=settings.get("VerifiedRoleID")))
         
         try:
             user = API.get(f'/verification/{member.guild.id}/{member.id}')

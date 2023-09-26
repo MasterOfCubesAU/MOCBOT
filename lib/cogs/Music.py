@@ -140,7 +140,7 @@ class Music(commands.Cog):
             guild = self.bot.get_guild(guild_id)
             player = event.player
             results = None
-            if len(player.queue) == 0 and player.fetch("autoplay") and player.loop == player.LOOP_NONE:
+            if len(player.queue) == 0 and player.current is None and player.fetch("autoplay") and player.loop == player.LOOP_NONE:
                 if not Music.is_youtube_url(event.track.uri):
                     youtube_res = await player.node.get_tracks(f'ytsearch:{event.track.title} {event.track.author}')
                     track = youtube_res.tracks[0]
