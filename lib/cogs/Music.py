@@ -668,7 +668,7 @@ class Music(commands.Cog):
 
         new_time = max(0, player.position - converted_time * 1000)
         await player.seek(new_time)
-        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Rewinded {time} to `{await self.formatDuration(new_time * 1000)}`.", None))
+        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Rewinded `{await self.formatDuration(converted_time * 1000)}` to `{await self.formatDuration(new_time)}`.", None))
         await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
     @app_commands.command(name="fastforward", description="Fast forwards the current song. If a time is not provided, this defaults to 15 seconds.")
@@ -692,7 +692,7 @@ class Music(commands.Cog):
             return await self.skip(interaction)
 
         await player.seek(new_time)
-        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Fast forwarded {time} to `{await self.formatDuration(new_time)}`.", None))
+        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", f"Fast forwarded `{await self.formatDuration(converted_time * 1000)}` to `{await self.formatDuration(new_time)}`.", None))
         await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
 
 async def setup(bot):
