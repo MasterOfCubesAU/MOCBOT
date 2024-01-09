@@ -34,13 +34,17 @@ class MOCBOT(commands.Bot):
             self.avatar_url = f"https://cdn.discordapp.com/embed/avatars/{int(self.user.discriminator) % 5}.png"
 
     def setup_logger(self):
-        discord.utils.setup_logging(level=logging.DEBUG)
-        # logging.config.dictConfig(config["LOGGING"])
-        # self.logger = logging.getLogger(__name__)
-        # for handler in logging.getLogger().handlers:
-        #     if handler.name == "file" and os.path.isfile('logs/latest.log'):
-        #         handler.doRollover()
-        # logging.getLogger('discord').setLevel(logging.DEBUG)
+        if not os.path.exists("logs"):
+            os.makedirs("logs")
+            
+        logging.config.dictConfig(config["LOGGING"])
+        self.logger = logging.getLogger(__name__)
+        for handler in logging.getLogger().handlers:
+            if isinstance(handler, logging.FileHandler):
+                handler.encoding = 'utf-8'
+            if handler.name == "file" and os.path.isfile('logs/latest.log'):
+                handler.doRollover()
+        logging.getLogger('discord').setLevel(logging.DEBUG)
 
     async def load_cog_manager(self):
         await self.load_extension("lib.cogs.Cogs")
@@ -59,7 +63,7 @@ class MOCBOT(commands.Bot):
         finally:
             self.logger.info(f"MOCBOT has been shut down gracefully.")
 
-    def create_embed(self, title, description, colour):
+    def create_embed(self, title, description, colour=None):
         embed = discord.Embed(title=None, description=description,
                               colour=colour if colour else 0xDC3145, timestamp=discord.utils.utcnow())
         embed.set_author(name=title if title else None,
