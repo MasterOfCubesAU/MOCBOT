@@ -34,12 +34,13 @@ class MOCBOT(commands.Bot):
             self.avatar_url = f"https://cdn.discordapp.com/embed/avatars/{int(self.user.discriminator) % 5}.png"
 
     def setup_logger(self):
-        logging.config.dictConfig(config["LOGGING"])
-        self.logger = logging.getLogger(__name__)
-        for handler in logging.getLogger().handlers:
-            if handler.name == "file" and os.path.isfile('logs/latest.log'):
-                handler.doRollover()
-        logging.getLogger('discord').setLevel(logging.DEBUG)
+        discord.utils.setup_logging(level=logging.DEBUG)
+        # logging.config.dictConfig(config["LOGGING"])
+        # self.logger = logging.getLogger(__name__)
+        # for handler in logging.getLogger().handlers:
+        #     if handler.name == "file" and os.path.isfile('logs/latest.log'):
+        #         handler.doRollover()
+        # logging.getLogger('discord').setLevel(logging.DEBUG)
 
     async def load_cog_manager(self):
         await self.load_extension("lib.cogs.Cogs")

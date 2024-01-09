@@ -140,6 +140,8 @@ class Music(commands.Cog):
             guild = self.bot.get_guild(guild_id)
             player = event.player
             results = None
+            print(len(player.queue))
+            print(player.current)
             if len(player.queue) == 0 and player.current is None and player.fetch("autoplay") and player.loop == player.LOOP_NONE:
                 if not Music.is_youtube_url(event.track.uri):
                     youtube_res = await player.node.get_tracks(f'ytsearch:{event.track.title} {event.track.author}')
@@ -175,7 +177,7 @@ class Music(commands.Cog):
         embed.add_field(name="Uploader",
                         value=player.current.author, inline=True)
         embed.add_field(name="Modifiers", value="{}".format('\n'.join(modifiers)), inline=False)
-        embed.set_image(url=await self.getMediaThumbnail(player.current.source_name, player.current.identifier) if not player.paused else "https://mocbot.masterofcubesau.com/static/media/media_paused.png")
+        # embed.set_image(url=await self.getMediaThumbnail(player.current.source_name, player.current.identifier) if not player.paused else "https://mocbot.masterofcubesau.com/static/media/media_paused.png")
         requester = guild.get_member(player.current.requester)
         embed.set_footer(
             text=f"Requested by {requester if requester is not None else f'{self.bot.user}'}")
@@ -279,7 +281,7 @@ class Music(commands.Cog):
         if player.current is not None:
             embed = self.bot.create_embed(
                 "MOCBOT MUSIC", f"> ADDED TO QUEUE: [{player.queue[-1].title}]({player.queue[-1].uri})", None)
-            embed.set_image(url=await self.getMediaThumbnail(player.queue[-1].source_name, player.queue[-1].identifier))
+            # embed.set_image(url=await self.getMediaThumbnail(player.queue[-1].source_name, player.queue[-1].identifier))
             embed.add_field(name="POSITION", value=len(
                 player.queue), inline=True)
             duration = reduce(lambda a, b: a + b, [song.duration if not song.stream else 0 for song in player.queue])
@@ -293,7 +295,7 @@ class Music(commands.Cog):
             embed.add_field(name="Duration", value=await self.formatDuration(player.queue[0].duration) if not player.queue[0].stream else "LIVE STREAM", inline=True)
             embed.add_field(name="Uploader",
                             value=player.queue[0].author, inline=True)
-            embed.set_image(url=await self.getMediaThumbnail(player.queue[0].source_name, player.queue[0].identifier))
+            # embed.set_image(url=await self.getMediaThumbnail(player.queue[0].source_name, player.queue[0].identifier))
             embed.set_footer(text=f"Requested by {interaction.user}")
             await interaction.followup.send(embed=embed)
             message = await interaction.original_response()
@@ -305,12 +307,12 @@ class Music(commands.Cog):
         if not player.is_playing:
             await player.play()
 
-    @play.autocomplete('query')
-    async def autocomplete_callback(self, interaction: discord.Interaction, current: str):
-        if not re.compile(r'https?://(?:www\.)?.+').match(current):
-            search = requests.get(
-                f"http://suggestqueries.google.com/complete/search?client=youtube&ds=yt&client=firefox&q={current.replace(' ', '%20')}")
-            return [app_commands.Choice(name=result, value=result) for result in search.json()[1]]
+    # @play.autocomplete('query')
+    # async def autocomplete_callback(self, interaction: discord.Interaction, current: str):
+    #     if not re.compile(r'https?://(?:www\.)?.+').match(current):
+    #         search = requests.get(
+    #             f"http://suggestqueries.google.com/complete/search?client=youtube&ds=yt&client=firefox&q={current.replace(' ', '%20')}")
+    #         return [app_commands.Choice(name=result, value=result) for result in search.json()[1]]
 
     @app_commands.command(name="skip", description="Skips the current media to the next one in queue.")
     @app_commands.describe(
