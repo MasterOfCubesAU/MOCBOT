@@ -321,7 +321,7 @@ class Music(commands.Cog):
         if player.current is not None:
             embed = self.bot.create_embed(
                 "MOCBOT MUSIC", f"> ADDED TO QUEUE: [{player.queue[-1].title}]({player.queue[-1].uri})", None)
-            # embed.set_image(url=await self.getMediaThumbnail(player.queue[-1].source_name, player.queue[-1].identifier))
+            embed.set_image(url=await self.getMediaThumbnail(player.queue[-1].source_name, player.queue[-1].identifier))
             embed.add_field(name="POSITION", value=len(
                 player.queue), inline=True)
             duration = reduce(lambda a, b: a + b, [song.duration if not song.stream else 0 for song in player.queue])
