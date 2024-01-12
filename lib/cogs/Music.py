@@ -101,12 +101,37 @@ class Music(commands.Cog):
 
     @lavalink.listener(QueueEndEvent)
     async def queue_end_hook(self, event: QueueEndEvent):
-        # When this track_hook receives a "QueueEndEvent" from lavalink.py
-        # it indicates that there are no tracks left in the player's queue.
-        # To save on resources, we can tell the bot to disconnect from the voice channel.
         guild_id = event.player.guild_id
+        guild = self.bot.get_guild(guild_id)
         player = event.player
-        if guild_id in self.players and not player.fetch("autoplay"):
+        track = player.fetch("last_track")
+
+        if guild_id not in self.players:
+            return 
+        
+        if player.fetch("autoplay"):
+            player = event.player
+            results = None
+
+            if not Music.is_youtube_url(track.uri):
+                youtube_res = await player.node.get_tracks(f'ytsearch:{track.title} {track.author}')
+                track = youtube_res.tracks[0]
+                results = await player.node.get_tracks(track.uri + f"&list=RD{track.identifier}")
+            else:
+                results = await player.node.get_tracks(track.uri + f"&list=RD{track.identifier}")
+            if not results or not results.tracks:
+                await self.disconnect_bot(guild_id)
+                raise commands.CommandInvokeError('Auto queueing could not load the next song.')
+
+            track_number = random.randrange(1, len(results.tracks) - 1)
+            player.add(requester=None, track=results.tracks[track_number])
+            self.logger.info(f"[MUSIC] [{guild} // {guild_id}] Auto-queued {results.tracks[track_number].title} - {results.tracks[track_number].uri}")
+            if not player.is_playing:
+                await player.play()
+        else:
+            # When this track_hook receives a "QueueEndEvent" from lavalink.py
+            # it indicates that there are no tracks left in the player's queue.
+            # To save on resources, we can tell the bot to disconnect from the voice channel.
             await self.disconnect_bot(guild_id)
                 
     @lavalink.listener(TrackStartEvent)
@@ -123,29 +148,7 @@ class Music(commands.Cog):
 
     @lavalink.listener(TrackEndEvent)
     async def track_end_hook(self, event: TrackEndEvent):
-        guild_id = event.player.guild_id
-        guild = self.bot.get_guild(guild_id)
-        player = event.player
-        results = None
-
-        if len(player.queue) == 0 and player.fetch("autoplay"):
-            if not Music.is_youtube_url(event.track.uri):
-                youtube_res = await player.node.get_tracks(f'ytsearch:{event.track.title} {event.track.author}')
-                track = youtube_res.tracks[0]
-                results = await player.node.get_tracks(track.uri + f"&list=RD{track.identifier}")
-            else:
-                results = await player.node.get_tracks(event.track.uri + f"&list=RD{event.track.identifier}")
-            if not results or not results.tracks:
-                await self.disconnect_bot(guild_id)
-                raise commands.CommandInvokeError('Auto queueing could not load the next song.')
-
-            track_number = random.randrange(1, len(results.tracks) - 1)
-            player.add(requester=None, track=results.tracks[track_number])
-            self.logger.info(f"[MUSIC] [{guild} // {guild_id}] Auto-queued {results.tracks[track_number].title} - {results.tracks[track_number].uri}")
-            if not player.is_playing:
-                await player.play()
-            if len(player.queue) != 0:
-                player.queue.pop(0)
+        event.player.store("last_track", event.track)
 
     async def disconnect_bot(self, guild_id):
         guild = self.bot.get_guild(guild_id)
@@ -166,41 +169,6 @@ class Music(commands.Cog):
 
     def is_youtube_url(url):
         return re.match("^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube(-nocookie)?\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?$", url)
-            
-    async def next_playing(self, event):
-        if isinstance(event, lavalink.events.TrackStartEvent):
-            guild_id = event.player.guild_id
-            guild = self.bot.get_guild(guild_id)
-            player = event.player
-            self.logger.info(
-                f"[MUSIC] [{guild} // {guild_id}] Playing {player.current.title} - {player.current.uri}")
-            if guild_id in self.players:
-                if player.current.stream:
-                    await MusicFilters.clear_all(player)
-                await self.sendNewNowPlaying(guild, player)
-
-    async def track_end(self, event):
-        if isinstance(event, lavalink.events.TrackEndEvent):
-            guild_id = event.player.guild_id
-            guild = self.bot.get_guild(guild_id)
-            player = event.player
-            results = None
-            if len(player.queue) == 0 and player.current is None and player.fetch("autoplay") and player.loop == player.LOOP_NONE:
-                if not Music.is_youtube_url(event.track.uri):
-                    youtube_res = await player.node.get_tracks(f'ytsearch:{event.track.title} {event.track.author}')
-                    track = youtube_res.tracks[0]
-                    results = await player.node.get_tracks(track.uri + f"&list=RD{track.identifier}")
-                else:
-                    results = await player.node.get_tracks(event.track.uri + f"&list=RD{event.track.identifier}")
-                if not results or not results.tracks:
-                    await self.disconnect_bot(guild_id)
-                    raise commands.CommandInvokeError('Auto queueing could not load the next song.')
-
-                track_number = random.randrange(1, len(results.tracks) - 1)
-                player.add(requester=None, track=results.tracks[track_number])
-                self.logger.info(f"[MUSIC] [{guild} // {guild_id}] Auto-queued {results.tracks[track_number].title} - {results.tracks[track_number].uri}")
-                if not player.is_playing:
-                    await player.play()
                 
     # Written by Sam https://github.com/sam1357
     async def generateNowPlayingEmbed(self, guild, player, track=None):
@@ -465,6 +433,7 @@ class Music(commands.Cog):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         if player is None or player.current is None:
             return await self.send_message(interaction, "The filters command requires media to be playing first.", True)
+
         await interaction.response.send_message(view=FilterDropdownView(player, interaction))
 
     # Written by Sam https://github.com/sam1357
