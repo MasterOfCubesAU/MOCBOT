@@ -34,7 +34,7 @@ Type `/` in your Discord server to see available commands. Alternatively, you ma
 
 ## Deployment
 
-MOCBOT is intended to be deployed as a whole system. See [MOCBOT Sytem](https://github.com/MasterOfCubesAU/mocbot-system).
+MOCBOT is intended to be deployed as a whole system. See [MOCBOT System](https://github.com/MasterOfCubesAU/mocbot-system).
 
 If you still wish to proceed and deploy MOCBOT's bot instance individually, ensure you have installed the following:
 
