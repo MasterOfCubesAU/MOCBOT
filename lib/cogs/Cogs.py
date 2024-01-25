@@ -72,9 +72,7 @@ class Cogs(commands.Cog):
                 await self.load_cog(cog)
 
     async def developer_check(self, interaction):
-        print('before')
         if interaction.user.id not in self.bot.developers:
-            print('after')
             await interaction.response.send_message(embed=self.bot.create_embed(
                 "MOCBOT SETUP", f"You must be a developer of the bot to be able to access this command.", None), ephemeral=True)
             return False
@@ -86,7 +84,6 @@ class Cogs(commands.Cog):
     async def list(self, interaction: discord.Interaction):
         if not (await self.developer_check(interaction)):
             return
-        print('after list')
         embed = self.bot.create_embed("MOCBOT SETUP", None, None)
         embed.add_field(name="Enabled", value=">>> {}".format(
             "\n".join([x for x in self.bot.cogs])), inline=True)
