@@ -114,7 +114,7 @@ class Cogs(commands.Cog):
         cogs="Space separated list of cogs to load."
     )
     async def load(self, interaction: discord.Interaction, *, cogs: str):
-        if not (await self.developer_check(interaction)):
+        if not (await self.bot.is_developer(interaction)):
             return
         failed_cogs = []
         cogs = cogs.split(" ")
@@ -136,7 +136,7 @@ class Cogs(commands.Cog):
         cogs="Space separated list of cogs to reload."
     )
     async def reload(self, interaction: discord.Interaction, *, cogs: str):
-        if not (await self.developer_check(interaction)):
+        if not (await self.bot.is_developer(interaction)):
             return
         failed_cogs = []
         cogs = cogs.split(" ")
