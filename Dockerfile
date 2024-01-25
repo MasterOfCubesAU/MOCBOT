@@ -7,4 +7,6 @@ RUN pip install -r requirements.txt
 
 COPY . /app
 
+EXPOSE 65535
+
 CMD ["python3", "launcher.py"]
