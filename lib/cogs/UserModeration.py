@@ -32,7 +32,6 @@ class UserModeration(commands.Cog):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
         
     @app_commands.command(name="kick", description="Kicks specified user.")
-    # @app_commands.guilds(DEV_GUILD)
     @app_commands.checks.has_permissions(kick_members=True)
     @app_commands.describe(
         member="The member you would like to kick.",
@@ -47,7 +46,6 @@ class UserModeration(commands.Cog):
         await interaction.response.send_message(f'**{member.mention}** has been kicked.', ephemeral=True)
 
     @app_commands.command(name="ban", description="Bans specified user permanently.")
-    # @app_commands.guilds(DEV_GUILD)
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.describe(
         user="The user you would like to ban.",
@@ -67,7 +65,6 @@ class UserModeration(commands.Cog):
             await interaction.followup.send(content=f'**{user.mention}** has been banned permanently.', ephemeral=True)
 
     @app_commands.command(name="unban", description="Unbans specified user.")
-    # @app_commands.guilds(DEV_GUILD)
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.describe(
         user="The user you would like to unban.",
@@ -82,14 +79,12 @@ class UserModeration(commands.Cog):
             await interaction.response.send_message(f"The user {user.mention} could has been unbanned.", ephemeral=True)
 
     @app_commands.command(name="warnings", description="Check user warnings.")
-    # @app_commands.guilds(DEV_GUILD)
     async def warnings(self, interaction: discord.Interaction):
         view=View()
         view.add_item(discord.ui.Button(label="View account",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/{interaction.guild.id}/account"))
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT WARNINGS", f"You can view all your warnings on your account page.", None), ephemeral=True, view=view)
 
     WarnGroup = app_commands.Group(name="warn", description="Manages user warnings.")
-    # @app_commands.guilds(DEV_GUILD)
     
     @WarnGroup.command(name="add", description="Adds a warning to a user.")
     @app_commands.checks.has_permissions(manage_guild=True)

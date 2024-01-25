@@ -1,24 +1,20 @@
 from glob import glob
 import os
-import sys
 from aiohttp import web
 import socketio
 import logging
 from discord.ext import commands
-import yaml
+from utils.ConfigHandler import Config
 
-with open("./config.yml", "r") as f:
-    config = yaml.safe_load(f)
-
-SIO = socketio.AsyncServer(cors_allowed_origins = [f'http://[{config["SOCKET"]["HOST"]}:{config["SOCKET"]["PORT"]}'])
+SIO = socketio.AsyncServer(cors_allowed_origins = [f'http://[{Config.fetch()["SOCKET"]["HOST"]}:{Config.fetch()["SOCKET"]["PORT"]}'])
 APP = web.Application()
 RUNNER = web.AppRunner(APP)
 SIO.attach(APP)
 
 class Socket():
     
-    HOST = config["SOCKET"]["HOST"]
-    PORT = config["SOCKET"]["PORT"]
+    HOST = Config.fetch()["SOCKET"]["HOST"]
+    PORT = Config.fetch()["SOCKET"]["PORT"]
 
     async def start(bot: commands.Bot):
         await bot.wait_until_ready()

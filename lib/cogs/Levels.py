@@ -2,7 +2,6 @@ from discord.ext import commands, tasks
 from discord.ui import View
 from discord import app_commands, File, Object, Status
 from utils.APIHandler import API
-from lib.bot import config, DEV_GUILD
 from requests.exceptions import HTTPError
 from expiringdict import ExpiringDict
 
@@ -136,7 +135,6 @@ class Levels(commands.Cog):
         if (
             not message.author.bot
             and not message.interaction
-            and message.author.id not in config["DEVELOPERS"]
             and message.guild
         ):
             await self.message_xp(message)

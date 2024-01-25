@@ -3,7 +3,6 @@ from discord.ext import commands, tasks
 from utils.APIHandler import API
 from discord import app_commands, Member, Object, Interaction, Forbidden, HTTPException, NotFound
 from typing import Optional
-from lib.bot import DEV_GUILD
 from enum import Enum
 from lib.socket.Socket import Socket
 from requests.exceptions import HTTPError

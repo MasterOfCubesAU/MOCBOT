@@ -1,23 +1,31 @@
 import requests
 from requests.exceptions import HTTPError
-from lib.bot import config
 import logging
+from utils.ConfigHandler import Config
 
 class API:
 
-    BASE_URL = config["API_URL"]
-    API_KEY = config["API_KEY"]
+    BASE_URL = Config.fetch()["API_URL"]
+    API_KEY = Config.fetch()["API_KEY"]
     LOGGER = logging.getLogger(__name__)
 
-    @staticmethod
-    def convertToInt(data: object):
-        for key in data:
-            try:
-                temp = int(data[key])
-            except (TypeError, ValueError):
-                continue
-            else:
-                data[key] = temp
+    def convert_to_int(data):
+        if isinstance(data, dict):
+            for key in data:
+                try:
+                    temp = int(data[key])
+                except (TypeError, ValueError):
+                    continue
+                else:
+                    data[key] = temp
+        elif isinstance(data, list):
+            for i, item in enumerate(data):
+                try:
+                    temp = int(item)
+                except (TypeError, ValueError):
+                    continue
+                else:
+                    data[i] = temp
         return data
 
     @staticmethod
@@ -29,7 +37,7 @@ class API:
             status = err.args[0].split(":")[0]
             raise HTTPError(f"{status}")
         else:
-            return API.convertToInt(req.json())
+            return API.convert_to_int(req.json())
     
     @staticmethod
     def get(route: str):
@@ -40,7 +48,7 @@ class API:
             status = err.args[0].split(":")[0]
             raise HTTPError(f"{status}", response=err.response)
         else:
-            return API.convertToInt(req.json())
+            return API.convert_to_int(req.json())
     
     @staticmethod
     def patch(route: str, body: object):
@@ -51,7 +59,7 @@ class API:
             status = err.args[0].split(":")[0]
             raise HTTPError(f"{status}")
         else:
-            return API.convertToInt(req.json())
+            return API.convert_to_int(req.json())
 
     @staticmethod
     def put(route: str, body: object):
@@ -62,7 +70,7 @@ class API:
             status = err.args[0].split(":")[0]
             raise HTTPError(f"{status}")
         else:
-            return API.convertToInt(req.json())
+            return API.convert_to_int(req.json())
         
     @staticmethod
     def delete(route: str):
@@ -73,6 +81,6 @@ class API:
             status = err.args[0].split(":")[0]
             raise HTTPError(f"{status}")
         else:
-            return API.convertToInt(req.json())
+            return API.convert_to_int(req.json())
         
         

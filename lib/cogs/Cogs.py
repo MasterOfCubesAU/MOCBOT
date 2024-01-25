@@ -1,10 +1,9 @@
 from discord.ext import commands
 from discord import app_commands
-from lib.bot import config, MOC_GUILD, DEV_GUILD
+from utils.ConfigHandler import Config
 import discord
 import logging
 from glob import glob
-from lib.bot import config
 import os
 import traceback
 
@@ -22,7 +21,7 @@ class Cogs(commands.Cog):
                 if cog not in ["Cogs", "ErrorHandler"]:
                     self.disabled_cogs.append(cog)
         else:
-            self.disabled_cogs.extend(["Template"] + config["DISABLED_COGS"])
+            self.disabled_cogs.extend(["Template"] + Config.fetch()["DISABLED_COGS"])
 
     async def cog_load(self):
         self.logger.info(f"[COG] Loaded {self.__class__.__name__}")
@@ -63,8 +62,8 @@ class Cogs(commands.Cog):
         [self.logger.warn(f"[COG] Skipping {cog} because it is disabled.") for cog in self.disabled_cogs]
         while self.unloaded_cogs:
             cog = self.unloaded_cogs.pop(0)
-            if cog in config["DEPENDENCIES"]:
-                if all([dependency in self.bot.cogs for dependency in config["DEPENDENCIES"][cog]]):
+            if cog in Config.fetch()["DEPENDENCIES"]:
+                if all([dependency in self.bot.cogs for dependency in Config.fetch()["DEPENDENCIES"][cog]]):
                     await self.load_cog(cog)
                 else:
                     self.logger.warning(f"[COG] Deferring {cog}")
@@ -72,10 +71,12 @@ class Cogs(commands.Cog):
             else:
                 await self.load_cog(cog)
 
-    CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.", guild_ids=[DEV_GUILD.id])
+    CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.")
 
     @CogGroup.command(name="list", description="Lists all cog statuses.")
     async def list(self, interaction: discord.Interaction):
+        if not (await self.bot.is_developer(interaction)):
+            return
         embed = self.bot.create_embed("MOCBOT SETUP", None, None)
         embed.add_field(name="Enabled", value=">>> {}".format(
             "\n".join([x for x in self.bot.cogs])), inline=True)
@@ -91,6 +92,8 @@ class Cogs(commands.Cog):
         cogs="Space separated list of cogs to unload."
     )
     async def unload(self, interaction: discord.Interaction, *, cogs: str):
+        if not (await self.bot.is_developer(interaction)):
+            return
         failed_cogs = []
         cogs = cogs.split(" ")
         for cog in cogs:
@@ -111,6 +114,8 @@ class Cogs(commands.Cog):
         cogs="Space separated list of cogs to load."
     )
     async def load(self, interaction: discord.Interaction, *, cogs: str):
+        if not (await self.bot.is_developer(interaction)):
+            return
         failed_cogs = []
         cogs = cogs.split(" ")
         for cog in cogs:
@@ -131,6 +136,8 @@ class Cogs(commands.Cog):
         cogs="Space separated list of cogs to reload."
     )
     async def reload(self, interaction: discord.Interaction, *, cogs: str):
+        if not (await self.bot.is_developer(interaction)):
+            return
         failed_cogs = []
         cogs = cogs.split(" ")
         for cog in cogs:

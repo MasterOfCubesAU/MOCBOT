@@ -1,6 +1,5 @@
-from discord.ext import commands, tasks
-from discord import app_commands
-from discord import DMChannel
+from discord.ext import commands
+from discord import app_commands, DMChannel
 from utils.APIHandler import API
 from requests.exceptions import HTTPError
 import discord 

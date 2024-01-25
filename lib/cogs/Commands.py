@@ -36,7 +36,6 @@ class Commands(commands.Cog):
 
 
     @app_commands.command(name="announce", description="Announces a message to a given audience and channel")
-  #  @app_commands.guilds(DEV_GUILD)
     @app_commands.checks.has_permissions(manage_guild=True)
     @app_commands.describe(
         audience="The audience group to target.",
@@ -54,7 +53,6 @@ class Commands(commands.Cog):
         await interaction.response.send_message(f"Announcement sent to {channel.mention}", ephemeral=True)
 
     @app_commands.command(name="purge", description="Remove content from a channel.")
-  #  @app_commands.guilds(DEV_GUILD)
     @app_commands.checks.has_permissions(manage_messages=True)
     @app_commands.describe(
         quantity="The amount of messages to purge. Limited to 100.",
@@ -104,42 +102,36 @@ class Commands(commands.Cog):
             await interaction.followup.send(f"**{len(to_purge)}** messages deleted. Channel purge complete.", ephemeral=True)
 
     @app_commands.command(name="setup", description="Configure MOCBOT server settings.")
-  #  @app_commands.guilds(DEV_GUILD)
     async def setup(self, interaction: discord.Interaction):
         view=View()
         view.add_item(discord.ui.Button(label="Setup",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/{interaction.guild.id}/manage"))
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT SETUP", f"To ensure full functionality of {self.bot.user.mention}, you must setup the bot to accomodate your server.", None), ephemeral=True, view=view)
 
     @app_commands.command(name="invite", description="Invite MOCBOT to your server.")
-  #  @app_commands.guilds(DEV_GUILD)
     async def invite(self, interaction: discord.Interaction):
         view=View()
         view.add_item(discord.ui.Button(label="Invite MOCBOT",style=discord.ButtonStyle.link,url=f"https://discord.com/api/oauth2/authorize?client_id=417962459811414027&permissions=8&scope=bot%20applications.commands"))
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT SETUP", f"Use the button below to invite MOCBOT into your own server!", None), view=view)
 
     @app_commands.command(name="contact", description="Contact the MOCBOT team.")
-  #  @app_commands.guilds(DEV_GUILD)
     async def contact(self, interaction: discord.Interaction):
         view=View()
         view.add_item(discord.ui.Button(label="Contact us",style=discord.ButtonStyle.link,url=f"https://masterofcubesau.com/contact"))
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT CONTACT", f"Use the button below to contact the team.", None), view=view)
 
     @app_commands.command(name="help", description="Displays MOCBOT help.")
-  #  @app_commands.guilds(DEV_GUILD)
     async def help(self, interaction: discord.Interaction):
         view=View()
         view.add_item(discord.ui.Button(label="Get help",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/help"))
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT HELP", f"Use the button below to get help using MOCBOT.", None), view=view)
 
     @app_commands.command(name="dashboard", description="Displays MOCBOT dashboard.")
-  #  @app_commands.guilds(DEV_GUILD)
     async def dashboard(self, interaction: discord.Interaction):
         view=View()
         view.add_item(discord.ui.Button(label="View dashboard",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/dashboard"))
         await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT HELP", f"Use the button below to access the MOCBOT dashboard.", None), view=view)
 
     @app_commands.command(name="account", description="Displays your account.")
-  #  @app_commands.guilds(DEV_GUILD)
     async def account(self, interaction: discord.Interaction):
         view=View()
         view.add_item(discord.ui.Button(label="View account",style=discord.ButtonStyle.link,url=f"https://mocbot.masterofcubesau.com/{interaction.guild.id}/account"))
