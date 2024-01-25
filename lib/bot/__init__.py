@@ -1,28 +1,21 @@
 import asyncio
+from utils.APIHandler import API
 from discord.ext import commands
-from discord import app_commands
+from utils.ConfigHandler import Config
 import logging.config
 import logging
 import discord
-import yaml
 import os
 
 from lib.socket.Socket import Socket
 
-with open("./config.yml", "r") as f:
-    config = yaml.safe_load(f)
-
-DEV_GUILD = discord.Object(id=config["GUILD_IDS"]["DEV"])
-MOC_GUILD = discord.Object(id=config["GUILD_IDS"]["MOC"])
-
-
 class MOCBOT(commands.Bot):
 
     def __init__(self, is_dev):
-        super().__init__(command_prefix="!",
-                         owner_id=169402073404669952, intents=discord.Intents.all())
+        super().__init__(command_prefix="!", intents=discord.Intents.all())
         self.is_dev = is_dev
         self.mode = "DEVELOPMENT" if is_dev else "PRODUCTION"
+        self.developers = API.get("/developers")
 
     async def setup_hook(self):
         self.setup_logger()
@@ -37,7 +30,7 @@ class MOCBOT(commands.Bot):
         if not os.path.exists("logs"):
             os.makedirs("logs")
             
-        logging.config.dictConfig(config["LOGGING"])
+        logging.config.dictConfig(Config.fetch()["LOGGING"])
         self.logger = logging.getLogger(__name__)
         for handler in logging.getLogger().handlers:
             if isinstance(handler, logging.FileHandler):
@@ -51,7 +44,7 @@ class MOCBOT(commands.Bot):
 
     async def main(self):
         await asyncio.gather(
-        super().start(config["TOKENS"][self.mode], reconnect=True),
+        super().start(Config.fetch()["TOKENS"][self.mode], reconnect=True),
         Socket.start(self)
     )
 
@@ -78,12 +71,12 @@ class MOCBOT(commands.Bot):
     #     async def extended_check(interaction):
     #         if interaction.guild is None:
     #             return False
-    #         return interaction.user.id in config["DEVELOPERS"] or (interaction.user.id == 169402073404669952) or await original.predicate(interaction)
+    #         return interaction.user.id in config.fetch()["DEVELOPERS"] or (interaction.user.id == 169402073404669952) or await original.predicate(interaction)
     #     return app_commands.check(extended_check)
 
     # @staticmethod
     # def is_developer(interaction: discord.Interaction):
-    #     return interaction.user.id in config["Developers"]
+    #     return interaction.user.id in config.fetch()["Developers"]
 
     async def on_ready(self):
         self.appinfo = await super().application_info()
@@ -99,7 +92,7 @@ class MOCBOT(commands.Bot):
 
     async def on_message(self, message):
         await self.wait_until_ready()
-        if (isinstance(message.channel, discord.DMChannel) and message.author.id in [self.owner_id, 288206127747825664]):
+        if (isinstance(message.channel, discord.DMChannel) and message.author.id in self.developers):
             message_components = message.content.lower().split(" ")
             match message_components[0]:
                 case "sync":

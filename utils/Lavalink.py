@@ -1,10 +1,6 @@
 import discord
 import lavalink
-import yaml
-
-with open("./config.yml", "r") as f:
-    config = yaml.safe_load(f)
-
+from utils.ConfigHandler import Config
 
 class LavalinkVoiceClient(discord.VoiceClient):
     """
@@ -23,9 +19,9 @@ class LavalinkVoiceClient(discord.VoiceClient):
         else:
             self.client.lavalink = lavalink.Client(client.user.id)
             self.client.lavalink.add_node(
-               config["LAVALINK"]["HOST"],
-                config["LAVALINK"]["PORT"],
-                config["LAVALINK"]["PASS"],
+               Config.fetch()["LAVALINK"]["HOST"],
+                Config.fetch()["LAVALINK"]["PORT"],
+                Config.fetch()["LAVALINK"]["PASS"],
                 'us',
                 'default-node'
             )

@@ -1,12 +1,12 @@
 from discord.ext import commands
 from discord import app_commands
-from lib.bot import config
 from typing import Literal
 
 from utils.Lavalink import LavalinkVoiceClient
 from utils.MusicFilters import FilterDropdownView, MusicFilters
 from utils.MusicQueue import QueueMenu, QueuePagination
 from utils.MusicLyrics import get_lyrics, lyrics_substring, LyricsMenu, LyricsPagination
+from utils.ConfigHandler import Config
 from StringProgressBar import progressBar
 from spotifysearch.client import Client as SpotifyClient
 from lavalink.events import TrackStartEvent, QueueEndEvent, TrackEndEvent
@@ -36,8 +36,8 @@ class Music(commands.Cog):
         # This ensures the client isn't overwritten during cog reloads.
         if not hasattr(bot, 'lavalink'):
             bot.lavalink = lavalink.Client(bot.user.id)
-            bot.lavalink.add_node(config["LAVALINK"]["HOST"], config["LAVALINK"]["PORT"],
-                                  config["LAVALINK"]["PASS"], 'eu', 'default-node')  # Host, Port, Password, Region, Name
+            bot.lavalink.add_node(Config.fetch()["LAVALINK"]["HOST"], Config.fetch()["LAVALINK"]["PORT"],
+                                  Config.fetch()["LAVALINK"]["PASS"], 'eu', 'default-node')  # Host, Port, Password, Region, Name
 
         bot.lavalink.add_event_hooks(self)
 
@@ -595,7 +595,7 @@ class Music(commands.Cog):
     async def lyrics(self, interaction: discord.Interaction, query: typing.Optional[str]):
         await interaction.response.defer(thinking=True, ephemeral=True)
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
-        my_client = SpotifyClient(config["SPOTIFY"]["CLIENT_ID"], config["SPOTIFY"]["CLIENT_SECRET"])
+        my_client = SpotifyClient(Config.fetch()["SPOTIFY"]["CLIENT_ID"], Config.fetch()["SPOTIFY"]["CLIENT_SECRET"])
 
         if (player is None or player.current is None) and query is None:
             return await self.send_message(interaction, "The lyrics command requires media to be playing first. Alternatively, you can search for lyrics for a specific song.", True)

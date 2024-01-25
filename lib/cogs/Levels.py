@@ -2,7 +2,6 @@ from discord.ext import commands, tasks
 from discord.ui import View
 from discord import app_commands, File, Object, Status
 from utils.APIHandler import API
-from lib.bot import config, DEV_GUILD
 from requests.exceptions import HTTPError
 from expiringdict import ExpiringDict
 

@@ -2,7 +2,6 @@ from discord.ext import commands, tasks
 from discord.ui import Button, View, Modal, TextInput
 from discord import app_commands, Interaction, NotFound, PermissionOverwrite, Status
 from requests.exceptions import HTTPError
-from lib.bot import DEV_GUILD
 
 from utils.APIHandler import API
 import discord
