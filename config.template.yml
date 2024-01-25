@@ -12,7 +12,7 @@ TOKENS:
   DEVELOPMENT: null
 
 # ======= API/SERVER CONNECTIONS =========
-API_URL: "http://API_URL/"
+API_URL: "http://api:8000/v1" # Ensure that the port is the same port defined by MOCBOT API's .env
 API_KEY: null
 
 SOCKET:
