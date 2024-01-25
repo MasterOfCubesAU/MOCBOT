@@ -21,8 +21,8 @@ SOCKET:
   KEY: null
 
 LAVALINK:
-  HOST: 127.0.0.1
-  PORT: 1234
+  HOST: "lavalink"
+  PORT: 2333
   PASS: null
 
 SPOTIFY:
