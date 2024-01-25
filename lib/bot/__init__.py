@@ -62,6 +62,13 @@ class MOCBOT(commands.Bot):
         embed.set_author(name=title if title else None,
                          icon_url=self.avatar_url)
         return embed
+    
+    async def is_developer(self, interaction):
+        if interaction.user.id not in self.bot.developers:
+            await interaction.response.send_message(embed=self.bot.create_embed(
+                "MOCBOT SETUP", f"You must be a developer of the bot to be able to access this command.", None), ephemeral=True)
+            return False
+        return True
 
     #  Doesn't work, need to look into
     # @staticmethod

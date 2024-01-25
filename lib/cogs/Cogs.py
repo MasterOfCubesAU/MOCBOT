@@ -71,18 +71,11 @@ class Cogs(commands.Cog):
             else:
                 await self.load_cog(cog)
 
-    async def developer_check(self, interaction):
-        if interaction.user.id not in self.bot.developers:
-            await interaction.response.send_message(embed=self.bot.create_embed(
-                "MOCBOT SETUP", f"You must be a developer of the bot to be able to access this command.", None), ephemeral=True)
-            return False
-        return True
-
     CogGroup = app_commands.Group(name="cog", description="Manages MOCBOT cogs.")
 
     @CogGroup.command(name="list", description="Lists all cog statuses.")
     async def list(self, interaction: discord.Interaction):
-        if not (await self.developer_check(interaction)):
+        if not (await self.bot.is_developer(interaction)):
             return
         embed = self.bot.create_embed("MOCBOT SETUP", None, None)
         embed.add_field(name="Enabled", value=">>> {}".format(
@@ -99,7 +92,7 @@ class Cogs(commands.Cog):
         cogs="Space separated list of cogs to unload."
     )
     async def unload(self, interaction: discord.Interaction, *, cogs: str):
-        if not (await self.developer_check(interaction)):
+        if not (await self.bot.is_developer(interaction)):
             return
         failed_cogs = []
         cogs = cogs.split(" ")
