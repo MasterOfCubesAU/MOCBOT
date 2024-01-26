@@ -2,17 +2,20 @@ from discord.ext import menus
 from discord.ui import Button, View
 from unidecode import unidecode
 from bs4 import BeautifulSoup, UnicodeDammit
-from swaglyrics import __version__, backend_url
+from swaglyrics import backend_url
 
 import discord
 import re
 import aiohttp
 
 brc = re.compile(r'([(\[](feat|ft|From "[^"]*")[^)\]]*[)\]]|- .*)', re.I)
-aln = re.compile(r'[^ \-a-zA-Z0-9]+')  # matches non space or - or alphanumeric characters
-spc = re.compile(' *- *| +')  # matches one or more spaces
-wth = re.compile(r'(?: *\(with )([^)]+)\)')  # capture text after with
-nlt = re.compile(r'[^\x00-\x7F\x80-\xFF\u0100-\u017F\u0180-\u024F\u1E00-\u1EFF]')  # match only latin characters,
+# matches non space or - or alphanumeric characters
+aln = re.compile(r"[^ \-a-zA-Z0-9]+")
+spc = re.compile(" *- *| +")  # matches one or more spaces
+wth = re.compile(r"(?: *\(with )([^)]+)\)")  # capture text after with
+# match only latin characters,
+nlt = re.compile(r"[^\x00-\x7F\x80-\xFF\u0100-\u017F\u0180-\u024F\u1E00-\u1EFF]")
+
 
 async def fetch(session, url, **kwargs):
     headers = {
@@ -22,50 +25,67 @@ async def fetch(session, url, **kwargs):
     async with session.get(url, headers=headers, **kwargs) as resp:
         return await resp.text()
 
+
 # Generates the URL to search for using the song and artist
+
+
 def stripper(song, artist) -> str:
-    song = re.sub(brc, '', song).strip()  # remove braces and included text with feat and text after '- '
+    # remove braces and included text with feat and text after '- '
+    song = re.sub(brc, "", song).strip()
     ft = wth.search(song)  # find supporting artists if any
     if ft:
-        song = song.replace(ft.group(), '')  # remove (with supporting artists) from song
+        # remove (with supporting artists) from song
+        song = song.replace(ft.group(), "")
         ar = ft.group(1)  # the supporting artist(s)
-        if '&' in ar:  # check if more than one supporting artist and add them to artist
-            artist += f'-{ar}'
+        if "&" in ar:  # check if more than one supporting artist and add them to artist
+            artist += f"-{ar}"
         else:
-            artist += f'-and-{ar}'
-    song_data = artist + '-' + song
+            artist += f"-and-{ar}"
+    song_data = artist + "-" + song
     # swap some special characters
-    url_data = song_data.replace('&', 'and')
+    url_data = song_data.replace("&", "and")
     # replace /, !, _ with space to support more songs
-    url_data = url_data.replace('/', ' ').replace('!', ' ').replace('_', ' ')
-    for ch in ['Ø', 'ø']:
-        url_data = url_data.replace(ch, '')
-    url_data = re.sub(nlt, '', url_data)  # remove non-latin characters before unidecode
+    url_data = url_data.replace("/", " ").replace("!", " ").replace("_", " ")
+    for ch in ["Ø", "ø"]:
+        url_data = url_data.replace(ch, "")
+    # remove non-latin characters before unidecode
+    url_data = re.sub(nlt, "", url_data)
     url_data = unidecode(url_data)  # convert accents and other diacritics
-    url_data = re.sub(aln, '', url_data)  # remove punctuation and other characters
-    url_data = re.sub(spc, '-', url_data.strip())  # substitute one or more spaces to -
+    # remove punctuation and other characters
+    url_data = re.sub(aln, "", url_data)
+    # substitute one or more spaces to -
+    url_data = re.sub(spc, "-", url_data.strip())
     return url_data
 
+
 # Gets the actual lyrics and strips all HTML data
+
+
 async def get_lyrics(song, artist):
     session = aiohttp.ClientSession()
     url_data = stripper(song, artist)  # generate url path using stripper()
     if url_data.startswith("-") or url_data.endswith("-"):
         # url path had either song in non-latin, artist in non-latin, or both
         return None
-    url = f"https://genius.com/{url_data}-lyrics"  # format the url with the url path
+    # format the url with the url path
+    url = f"https://genius.com/{url_data}-lyrics"
 
     try:
         page = await fetch(session, url, raise_for_status=True)
     except aiohttp.ClientResponseError:
-        url_data = await fetch(session, f"{backend_url}/stripper", data={"song": song, "artist": artist})
+        url_data = await fetch(
+            session,
+            f"{backend_url}/stripper",
+            data={"song": song, "artist": artist},
+        )
         if not url_data:
             return None
         url = f"https://genius.com/{url_data}-lyrics"
         page = await fetch(session, url)
 
     html = BeautifulSoup(page, "html.parser")
-    lyrics_path = html.find("div", class_="lyrics")  # finding div on Genius containing the lyrics
+    # finding div on Genius containing the lyrics
+    lyrics_path = html.find("div", class_="lyrics")
     if lyrics_path:
         lyrics = UnicodeDammit(lyrics_path.get_text().strip()).unicode_markup
     else:
@@ -76,8 +96,9 @@ async def get_lyrics(song, artist):
             lyrics_data.append(UnicodeDammit(re.sub("<.*?>", "", str(x).replace("<br/>", "\n"))).unicode_markup)
 
         lyrics = "\n".join(lyrics_data)
-        lyrics = re.sub(r'\[.*\]\n', '', lyrics)
+        lyrics = re.sub(r"\[.*\]\n", "", lyrics)
     return lyrics
+
 
 def lyrics_substring(lyrics):
     start_index = 0
@@ -91,6 +112,7 @@ def lyrics_substring(lyrics):
         chunks.append(lyrics[start_index:end_index])
         start_index = end_index
     return chunks
+
 
 class LyricsMenu(View, menus.MenuPages):
     def __init__(self, source, interaction):
@@ -135,8 +157,8 @@ class LyricsMenu(View, menus.MenuPages):
     async def _get_kwargs_from_page(self, page):
         """This method calls ListPageSource.format_page class"""
         value = await super()._get_kwargs_from_page(page)
-        if 'view' not in value:
-            value.update({'view': self})
+        if "view" not in value:
+            value.update({"view": self})
         return value
 
     async def interaction_check(self, interaction):
@@ -144,11 +166,9 @@ class LyricsMenu(View, menus.MenuPages):
         return interaction.user == self.ctx.author
 
     def createButtons(self):
-        first_button = Button(label="First Page",
-                              style=discord.ButtonStyle.gray)
+        first_button = Button(label="First Page", style=discord.ButtonStyle.gray)
         first_button.callback = self.first_page_callback
-        previous_button = Button(
-            label="Previous Page", style=discord.ButtonStyle.gray)
+        previous_button = Button(label="Previous Page", style=discord.ButtonStyle.gray)
         previous_button.callback = self.previous_page_callback
         next_button = Button(label="Next Page", style=discord.ButtonStyle.gray)
         next_button.callback = self.next_page_callback
@@ -171,16 +191,17 @@ class LyricsMenu(View, menus.MenuPages):
     async def last_page_callback(self, interaction):
         await self.show_page(self._source.get_max_pages() - 1, interaction)
 
+
 class LyricsPagination(menus.ListPageSource):
     def __init__(self, interaction, lyrics, song, artist):
         super().__init__(lyrics, per_page=1)
         self.interaction = interaction
-        self.song = song 
+        self.song = song
         self.artist = artist
 
     async def format_page(self, menu, entries):
-        embed = self.interaction.client.create_embed(
-            f"{self.song} by {self.artist} Lyrics", entries, None)
+        embed = self.interaction.client.create_embed(f"{self.song} by {self.artist} Lyrics", entries, None)
         embed.set_footer(
-            text=f"Page {menu.current_page + 1}/{self.get_max_pages() or 1} | Requested by {self.interaction.user}")
+            text=f"Page {menu.current_page + 1}/{self.get_max_pages() or 1} | Requested by {self.interaction.user}"
+        )
         return embed
