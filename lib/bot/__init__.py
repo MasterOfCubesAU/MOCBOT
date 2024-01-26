@@ -6,19 +6,22 @@ import logging.config
 import logging
 import discord
 import os
+import typing
+
+from discord import Embed, Colour, Interaction, Message
 
 from lib.socket.Socket import Socket
 
 
 class MOCBOT(commands.Bot):
 
-    def __init__(self, is_dev):
+    def __init__(self, is_dev: bool) -> None:
         super().__init__(command_prefix="!", intents=discord.Intents.all())
         self.is_dev = is_dev
         self.mode = "DEVELOPMENT" if is_dev else "PRODUCTION"
         self.developers = API.get("/developers")
 
-    async def setup_hook(self):
+    async def setup_hook(self) -> None:
         self.setup_logger()
         await self.load_cog_manager()
         self.appinfo = await super().application_info()
@@ -27,7 +30,7 @@ class MOCBOT(commands.Bot):
         else:
             self.avatar_url = f"https://cdn.discordapp.com/embed/avatars/" f"{int(self.user.discriminator) % 5}.png"
 
-    def setup_logger(self):
+    def setup_logger(self) -> None:
         if not os.path.exists("logs"):
             os.makedirs("logs")
 
@@ -40,16 +43,16 @@ class MOCBOT(commands.Bot):
                 handler.doRollover()
         logging.getLogger("discord").setLevel(logging.DEBUG)
 
-    async def load_cog_manager(self):
+    async def load_cog_manager(self) -> None:
         await self.load_extension("lib.cogs.Cogs")
 
-    async def main(self):
+    async def main(self) -> None:
         await asyncio.gather(
             super().start(Config.fetch()["TOKENS"][self.mode], reconnect=True),
             Socket.start(self),
         )
 
-    def run(self):
+    def run(self) -> None:
         try:
             asyncio.run(self.main())
         except KeyboardInterrupt:
@@ -57,7 +60,7 @@ class MOCBOT(commands.Bot):
         finally:
             self.logger.info("MOCBOT has been shut down gracefully.")
 
-    def create_embed(self, title, description, colour=None):
+    def create_embed(self, title: str, description: str, colour: typing.Union[Colour, int, None] = None) -> Embed:
         embed = discord.Embed(
             title=None,
             description=description,
@@ -67,7 +70,7 @@ class MOCBOT(commands.Bot):
         embed.set_author(name=title if title else None, icon_url=self.avatar_url)
         return embed
 
-    async def is_developer(self, interaction):
+    async def is_developer(self, interaction: Interaction) -> bool:
         if interaction.user.id not in self.developers:
             await interaction.response.send_message(
                 embed=self.bot.create_embed(
@@ -97,19 +100,19 @@ class MOCBOT(commands.Bot):
     # def is_developer(interaction: discord.Interaction):
     #     return interaction.user.id in config.fetch()["Developers"]
 
-    async def on_ready(self):
+    async def on_ready(self) -> None:
         self.appinfo = await super().application_info()
         self.avatar_url = self.appinfo.icon.url
         self.logger.info(f"Connected on {self.user.name} ({self.mode}) | d.py v{str(discord.__version__)}")
 
-    async def on_interaction(self, interaction):
+    async def on_interaction(self, interaction: Interaction) -> None:
         if interaction.type is discord.InteractionType.application_command:
             self.logger.info(
                 f"[COMMAND] [{interaction.guild} // {interaction.guild.id}] {interaction.user} ({interaction.user.id})"
                 " used command {interaction.command.name}"
             )
 
-    async def on_message(self, message):
+    async def on_message(self, message: Message) -> None:
         await self.wait_until_ready()
         if isinstance(message.channel, discord.DMChannel) and message.author.id in self.developers:
             message_components = message.content.lower().split(" ")
