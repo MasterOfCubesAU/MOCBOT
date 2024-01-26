@@ -12,8 +12,8 @@ API_URL: "http://api:8000/v1" # Ensure that the port is the same port defined by
 API_KEY: null
 
 SOCKET:
-  HOST: 127.0.0.1
-  PORT: 1234
+  HOST: 0.0.0.0
+PORT: 65535
   KEY: null
 
 LAVALINK:
