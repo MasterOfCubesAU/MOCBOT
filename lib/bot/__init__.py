@@ -73,7 +73,7 @@ class MOCBOT(commands.Bot):
     async def is_developer(self, interaction: Interaction) -> bool:
         if interaction.user.id not in self.developers:
             await interaction.response.send_message(
-                embed=self.bot.create_embed(
+                embed=self.create_embed(
                     "MOCBOT SETUP",
                     "You must be a developer of the bot to be able to access this command.",
                     None,
