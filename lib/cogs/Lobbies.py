@@ -601,12 +601,21 @@ class LobbyCreation(Modal, title="Lobby Creation"):
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(thinking=False)
         self.LobbyPrompt.clear_items()
-        await self.LobbyPrompt.updateView(
-            interaction.client.create_embed(
-                "MOCBOT LOBBIES",
-                f"Creating lobby **{self.lobby_name.value}**",
-                None,
+        lobby_details = LobbyPrompt.get_lobby_details(interaction.user)
+
+        if lobby_details != {}:
+            await self.LobbyPrompt.delete_prompt()
+            return await interaction.followup.send(
+                embed=interaction.client.create_embed(
+                    "MOCBOT LOBBIES",
+                    "You cannot create another lobby as you are already in a lobby.",
+                    None,
+                ),
+                ephemeral=True,
             )
+
+        await self.LobbyPrompt.updateView(
+            interaction.client.create_embed("MOCBOT LOBBIES", f"Creating lobby **{self.lobby_name.value}**", None)
         )
         await self.LobbyPrompt.create_lobby(self.lobby_name.value, interaction.user)
         await asyncio.sleep(1)
