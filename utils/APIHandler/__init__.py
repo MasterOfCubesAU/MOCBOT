@@ -3,6 +3,7 @@ from requests.exceptions import HTTPError
 import logging
 from utils.ConfigHandler import Config
 
+
 class API:
 
     BASE_URL = Config.fetch()["API_URL"]
@@ -31,14 +32,18 @@ class API:
     @staticmethod
     def post(route: str, body: object):
         try:
-            req = requests.post(API.BASE_URL + route, headers={"X-API-KEY": API.API_KEY}, json=body)
+            req = requests.post(
+                API.BASE_URL + route,
+                headers={"X-API-KEY": API.API_KEY},
+                json=body,
+            )
             req.raise_for_status()
         except requests.exceptions.HTTPError as err:
             status = err.args[0].split(":")[0]
             raise HTTPError(f"{status}")
         else:
             return API.convert_to_int(req.json())
-    
+
     @staticmethod
     def get(route: str):
         try:
@@ -49,11 +54,15 @@ class API:
             raise HTTPError(f"{status}", response=err.response)
         else:
             return API.convert_to_int(req.json())
-    
+
     @staticmethod
     def patch(route: str, body: object):
         try:
-            req = requests.patch(API.BASE_URL + route, headers={"X-API-KEY": API.API_KEY}, json=body)
+            req = requests.patch(
+                API.BASE_URL + route,
+                headers={"X-API-KEY": API.API_KEY},
+                json=body,
+            )
             req.raise_for_status()
         except requests.exceptions.HTTPError as err:
             status = err.args[0].split(":")[0]
@@ -64,14 +73,18 @@ class API:
     @staticmethod
     def put(route: str, body: object):
         try:
-            req = requests.put(API.BASE_URL + route, headers={"X-API-KEY": API.API_KEY}, json=body)
+            req = requests.put(
+                API.BASE_URL + route,
+                headers={"X-API-KEY": API.API_KEY},
+                json=body,
+            )
             req.raise_for_status()
         except requests.exceptions.HTTPError as err:
             status = err.args[0].split(":")[0]
             raise HTTPError(f"{status}")
         else:
             return API.convert_to_int(req.json())
-        
+
     @staticmethod
     def delete(route: str):
         try:
@@ -82,5 +95,3 @@ class API:
             raise HTTPError(f"{status}")
         else:
             return API.convert_to_int(req.json())
-        
-        

@@ -2,6 +2,7 @@ import discord
 import lavalink
 from utils.ConfigHandler import Config
 
+
 class LavalinkVoiceClient(discord.VoiceClient):
     """
     This is the preferred way to handle external voice sending
@@ -14,38 +15,34 @@ class LavalinkVoiceClient(discord.VoiceClient):
         self.client = client
         self.channel = channel
         # ensure a client already exists
-        if hasattr(self.client, 'lavalink'):
+        if hasattr(self.client, "lavalink"):
             self.lavalink = self.client.lavalink
         else:
             self.client.lavalink = lavalink.Client(client.user.id)
             self.client.lavalink.add_node(
-               Config.fetch()["LAVALINK"]["HOST"],
+                Config.fetch()["LAVALINK"]["HOST"],
                 Config.fetch()["LAVALINK"]["PORT"],
                 Config.fetch()["LAVALINK"]["PASS"],
-                'us',
-                'default-node'
+                "us",
+                "default-node",
             )
             self.lavalink = self.client.lavalink
 
     async def on_voice_server_update(self, data):
         # the data needs to be transformed before being handed down to
         # voice_update_handler
-        lavalink_data = {
-            't': 'VOICE_SERVER_UPDATE',
-            'd': data
-        }
+        lavalink_data = {"t": "VOICE_SERVER_UPDATE", "d": data}
         await self.lavalink.voice_update_handler(lavalink_data)
 
     async def on_voice_state_update(self, data):
         # the data needs to be transformed before being handed down to
         # voice_update_handler
-        lavalink_data = {
-            't': 'VOICE_STATE_UPDATE',
-            'd': data
-        }
+        lavalink_data = {"t": "VOICE_STATE_UPDATE", "d": data}
         await self.lavalink.voice_update_handler(lavalink_data)
 
-    async def connect(self, *, timeout: float, reconnect: bool, self_deaf: bool = False, self_mute: bool = False) -> None:
+    async def connect(
+        self, *, timeout: float, reconnect: bool, self_deaf: bool = False, self_mute: bool = False
+    ) -> None:
         """
         Connect the bot to the voice channel and create a player_manager
         if it doesn't exist yet.
