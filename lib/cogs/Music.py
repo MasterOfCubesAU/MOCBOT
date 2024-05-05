@@ -646,7 +646,7 @@ class Music(commands.Cog):
         time="The amount of time to fast forward. Examples: 10 | 1:10 | 1:10:10"
     )
     @interaction_ensure_voice
-    async def fastforward(self, interaction: discord.Interaction, time: typing.Optional[str]):
+    async def fast_forward(self, interaction: discord.Interaction, time: typing.Optional[str]):
         if (converted_time := Music.convert_to_seconds(time)) == -1:
             converted_time = self.DEFAULT_SEEK_TIME
         elif converted_time is None:
@@ -670,7 +670,7 @@ class Music(commands.Cog):
         query="A search query or URL to the media."
     )
     @interaction_ensure_voice
-    async def playnext(self, interaction: discord.Interaction, query: str):
+    async def play_next(self, interaction: discord.Interaction, query: str):
         await interaction.response.defer(thinking=True)
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         
@@ -692,7 +692,7 @@ class Music(commands.Cog):
         continue_skipped="Should the skipped track continue playing after the current track? Defaults to yes."
     )
     @interaction_ensure_voice
-    async def playnow(self, interaction: discord.Interaction, query: str, continue_skipped: typing.Optional[Literal["Yes", "No"]]="Yes"):
+    async def play_now(self, interaction: discord.Interaction, query: str, continue_skipped: typing.Optional[Literal["Yes", "No"]]="Yes"):
         await interaction.response.defer(thinking=True)
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         
@@ -714,8 +714,8 @@ class Music(commands.Cog):
                 await self.send_message(interaction, f"The track [{skipped.title}]({skipped.uri}) has been skipped.", followup=True)
 
     @play.autocomplete('query')
-    @playnext.autocomplete('query')
-    @playnow.autocomplete('query')
+    @play_next.autocomplete('query')
+    @play_now.autocomplete('query')
     async def autocomplete_callback(self, _: discord.Interaction, current: str):
         if not re.compile(r'https?://(?:www\.)?.+').match(current):
             search = requests.get(
