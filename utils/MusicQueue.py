@@ -4,7 +4,6 @@ import discord
 from functools import reduce
 import datetime
 
-
 class QueueMenu(View, menus.MenuPages):
     def __init__(self, source, interaction, timeout=20):
         super().__init__(timeout=timeout)
@@ -96,18 +95,24 @@ class QueuePagination(menus.ListPageSource):
         self.player = player
         self.emptyQueueMsg = "Type `/play [SONG]` to add songs to the queue."
 
-    async def formatDuration(self, ms):
+    async def format_duration(self, ms):
         return datetime.datetime.utcfromtimestamp(ms / 1000).strftime("%Hh %Mm %Ss")
 
     async def format_page(self, menu, entries):
         offset = (menu.current_page * self.per_page) + 1
         now_playing = f"[{self.player.current.title}]({self.player.current.uri})" if self.player is not None and self.player.current is not None else "N/A"
-        queueContent = "{}\n\n**CURRENT QUEUE:**\n{}".format(f"> NOW PLAYING: {now_playing}", "\n".join([f'{index}. [{track.title}]({track.uri}) - {await self.Music.formatDuration(track.duration) if not track.stream else "LIVE STREAM"}' for index, track in enumerate(entries, start=offset)]) if entries else self.emptyQueueMsg)
+        queueContent = "{}\n\n**CURRENT QUEUE:**\n{}".format(
+            f"> NOW PLAYING: {now_playing}",
+            "\n".join([
+                f'{index}. [{track.title}]({track.uri}) - {f"**{await self.format_duration(track.position)}**/" if track.position != 0 and not track.stream else ""}{await self.format_duration(track.duration) if not track.stream else "LIVE STREAM"}'
+                for index, track in enumerate(entries, start=offset)
+            ]) if entries else self.emptyQueueMsg
+        )
         embed = self.interaction.client.create_embed(
             "MOCBOT MUSIC", queueContent, None)
         if entries:
             duration = reduce(lambda a, b: a + b, [song.duration if not song.stream else 0 for song in self.player.queue])
-            embed.add_field(name="**Total Duration**", value=await self.formatDuration(duration) if (duration < 86400000) else '>24h', inline=True)
+            embed.add_field(name="**Total Duration**", value=await self.format_duration(duration) if (duration < 86400000) else '>24h', inline=True)
             embed.add_field(name="**Total Tracks**",
                             value=len(self.player.queue), inline=True)
         embed.set_footer(

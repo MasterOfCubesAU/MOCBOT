@@ -48,11 +48,15 @@ class Music(commands.Cog):
         """ Cog unload handler. This removes any event hooks that were registered. """
         self.bot.lavalink._event_hooks.clear()
 
-    async def send_message(self, interaction, msg, ephemeral=False):
-        await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", msg), ephemeral=ephemeral)
+    async def send_message(self, interaction:discord.Interaction, msg: str, ephemeral=False, followup=False):
+        if followup:
+            await interaction.followup.send(embed=self.bot.create_embed("MOCBOT MUSIC", msg), ephemeral=ephemeral)
+        else:
+            await interaction.response.send_message(embed=self.bot.create_embed("MOCBOT MUSIC", msg), ephemeral=ephemeral)
+
         if not ephemeral:
             return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
-        
+    
     def queue_length_msg(self, player):
         return f"There {'is' if len(player.queue) == 1 else 'are'} **{len(player.queue)}** track{'' if len(player.queue) == 1 else 's'} in the queue."
             
@@ -71,7 +75,7 @@ class Music(commands.Cog):
         #  This is essentially the same as `@commands.guild_only()`
         #  except it saves us repeating ourselves (and also a few lines)
 
-        should_connect = interaction.command.name in ('play')
+        should_connect = interaction.command.name in ['play', 'playnow', 'playnext']
 
         if not interaction.user.voice or not interaction.user.voice.channel:
             await self.send_message(interaction, 'Join a voice channel first', True)
@@ -111,14 +115,12 @@ class Music(commands.Cog):
         
         if player.fetch("autoplay"):
             player = event.player
-            results = None
 
             if not Music.is_youtube_url(track.uri):
                 youtube_res = await player.node.get_tracks(f'ytsearch:{track.title} {track.author}')
                 track = youtube_res.tracks[0]
-                results = await player.node.get_tracks(track.uri + f"&list=RD{track.identifier}")
-            else:
-                results = await player.node.get_tracks(track.uri + f"&list=RD{track.identifier}")
+
+            results = await player.node.get_tracks(track.uri + f"&list=RD{track.identifier}")
             if not results or not results.tracks:
                 await self.disconnect_bot(guild_id)
                 raise commands.CommandInvokeError('Auto queueing could not load the next song.')
@@ -144,7 +146,9 @@ class Music(commands.Cog):
         if guild_id in self.players:
             if player.current.stream:
                 await MusicFilters.clear_all(player)
-            await self.sendNewNowPlaying(guild, player)
+            if player.current.position != 0:
+                await player.seek(player.current.position)
+            await self.send_new_now_playing(guild, player)
 
     @lavalink.listener(TrackEndEvent)
     async def track_end_hook(self, event: TrackEndEvent):
@@ -171,7 +175,7 @@ class Music(commands.Cog):
         return re.match("^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube(-nocookie)?\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?$", url)
                 
     # Written by Sam https://github.com/sam1357
-    async def generateNowPlayingEmbed(self, guild, player, track=None):
+    async def generate_now_playing_embed(self, guild, player, track=None):
         if track is None:
             track = player.current
         modifiers = []
@@ -186,28 +190,28 @@ class Music(commands.Cog):
 
         embed = self.bot.create_embed(
             "MOCBOT MUSIC", f"> {'NOW PLAYING' if not player.paused else 'PAUSED'}: [{track.title}]({track.uri})", None)
-        embed.add_field(name="Duration", value=await self.formatDuration(track.duration) if not track.stream else "LIVE STREAM", inline=True)
+        embed.add_field(name="Duration", value=await self.format_duration(track.duration) if not track.stream else "LIVE STREAM", inline=True)
         embed.add_field(name="Uploader",
                         value=track.author, inline=True)
         embed.add_field(name="Modifiers", value="{}".format('\n'.join(modifiers)), inline=False)
-        embed.set_image(url=await self.getMediaThumbnail(track.source_name, track.identifier) if not player.paused else "https://mocbot.masterofcubesau.com/static/media/media_paused.png")
+        embed.set_image(url=await self.get_media_thumbnail(track.source_name, track.identifier) if not player.paused else "https://mocbot.masterofcubesau.com/static/media/media_paused.png")
         requester = guild.get_member(track.requester)
         embed.set_footer(
             text=f"Requested by {requester if requester is not None else f'{self.bot.user}'}")
         return embed
 
-    async def updateNowPlaying(self, guild, player):
+    async def update_now_playing(self, guild, player):
         channel = guild.get_channel(self.players[guild.id]["CHANNEL"])
         message = await channel.fetch_message(self.players[guild.id]["MESSAGE_ID"])
-        await message.edit(embed=await self.generateNowPlayingEmbed(guild, player))
+        await message.edit(embed=await self.generate_now_playing_embed(guild, player))
 
-    async def sendNewNowPlaying(self, guild, player):
+    async def send_new_now_playing(self, guild, player):
         channel = guild.get_channel(self.players[guild.id]["CHANNEL"])
         message = await self.retrieve_now_playing(channel, guild)
         if not self.players[guild.id]["FIRST"]:
             if message is not None:
                 await message.delete()
-            message = await channel.send(embed=await self.generateNowPlayingEmbed(guild, player))
+            message = await channel.send(embed=await self.generate_now_playing_embed(guild, player))
         self.players[guild.id] = {"CHANNEL": channel.id, "MESSAGE_ID": message.id, "FIRST": False}
 
     async def retrieve_now_playing(self, channel, guild):
@@ -217,39 +221,8 @@ class Music(commands.Cog):
             return None
         else:
             return message
-
-    async def formatDuration(self, ms):
-        return datetime.datetime.utcfromtimestamp(ms / 1000).strftime("%Hh %Mm %Ss")
-
-    async def delay_delete(self, interaction, time):
-        await asyncio.sleep(time)
-        await interaction.delete_original_response()
-
-    async def getMediaThumbnail(self, provider, identifier):
-        match provider:
-            case 'youtube':
-                if requests.get(f"https://img.youtube.com/vi/{identifier}/maxresdefault.jpg").status_code == 200:
-                    return f"https://img.youtube.com/vi/{identifier}/maxresdefault.jpg"
-                return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
-            case 'spotify':
-                return requests.get(f'https://open.spotify.com/oembed?url=spotify:track:{identifier}').json()["thumbnail_url"]
-            case 'soundcloud':
-                return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
-            case 'applemusic':
-                return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
-            case _:
-                return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
-
-    @app_commands.command(name="play", description="Search and play media from YouTube, Spotify, SoundCloud, Apple Music etc.")
-    @app_commands.describe(
-        query="A search query or URL to the media."
-    )
-    @interaction_ensure_voice
-    async def play(self, interaction: discord.Interaction, query: str):
-        """ Searches and plays a song from a given query. """
-        await interaction.response.defer(thinking=True)
-        # Get the player for this guild from cache.
-        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+        
+    async def add_tracks(self, interaction: discord.Interaction, player: lavalink.DefaultPlayer, query: str):
         # Remove leading and trailing <>. <> may be used to suppress embedding links in Discord.
         query = query.strip('<>')
 
@@ -286,34 +259,68 @@ class Music(commands.Cog):
             self.logger.info(
                 f"[MUSIC] [{interaction.guild} // {interaction.guild.id}] Queued {track.title} - {track.uri}")
 
-        if player.current is not None:
-            embed = self.bot.create_embed(
-                "MOCBOT MUSIC", f"> ADDED TO QUEUE: [{player.queue[-1].title}]({player.queue[-1].uri})", None)
-            embed.set_image(url=await self.getMediaThumbnail(player.queue[-1].source_name, player.queue[-1].identifier))
-            embed.add_field(name="POSITION", value=len(
-                player.queue), inline=True)
-            duration = reduce(lambda a, b: a + b, [song.duration if not song.stream else 0 for song in player.queue])
-            embed.add_field(name="QUEUE TIME", value=await self.formatDuration(duration) if (duration < 86400000) else '>24h', inline=True)
-            embed.set_footer(text=f"Requested by {interaction.user}")
-            await interaction.followup.send(embed=embed)
-            await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
-        else:
-            await interaction.followup.send(embed=await self.generateNowPlayingEmbed(interaction.guild, player, player.queue[0]))
-            message = await interaction.original_response()
-            self.players[interaction.guild.id] = {
-                "CHANNEL": interaction.channel.id, "MESSAGE_ID": message.id, "FIRST": True}
+    async def format_duration(self, ms):
+        return datetime.datetime.utcfromtimestamp(ms / 1000).strftime("%Hh %Mm %Ss")
 
+    async def delay_delete(self, interaction, time):
+        await asyncio.sleep(time)
+        await interaction.delete_original_response()
+
+    async def get_media_thumbnail(self, provider, identifier):
+        match provider:
+            case 'youtube':
+                if requests.get(f"https://img.youtube.com/vi/{identifier}/maxresdefault.jpg").status_code == 200:
+                    return f"https://img.youtube.com/vi/{identifier}/maxresdefault.jpg"
+                return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
+            case 'spotify':
+                return requests.get(f'https://open.spotify.com/oembed?url=spotify:track:{identifier}').json()["thumbnail_url"]
+            case 'soundcloud':
+                return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
+            case 'applemusic':
+                return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
+            case _:
+                return "https://mocbot.masterofcubesau.com/static/media/noThumbnail.png"
+            
+    async def handle_new_player(self, interaction: discord.Interaction, player: lavalink.DefaultPlayer):
+        await interaction.followup.send(embed=await self.generate_now_playing_embed(interaction.guild, player, player.queue[0]))
+        message = await interaction.original_response()
+        self.players[interaction.guild.id] = {
+            "CHANNEL": interaction.channel.id, "MESSAGE_ID": message.id, "FIRST": True}
+        
         # We don't want to call .play() if the player is playing as that will effectively skip
         # the current track.
         if not player.is_playing:
             await player.play()
+        
+    async def generate_custom_play_embed(self, interaction: discord.Interaction, player: lavalink.DefaultPlayer, track_index: int, title: str, position: typing.Optional[int]):
+        track = player.queue[track_index]
+        embed = self.bot.create_embed(
+            "MOCBOT MUSIC", f"> {title} [{track.title}]({track.uri})", None)
+        embed.set_image(url=await self.get_media_thumbnail(track.source_name, track.identifier))
+        embed.add_field(name="POSITION", value=position if position is not None else len(player.queue), inline=True)
+        duration = reduce(lambda a, b: a + b, [song.duration if not song.stream else 0 for song in player.queue])
+        embed.add_field(name="QUEUE TIME", value=await self.format_duration(duration) if (duration < 86400000) else '>24h', inline=True)
+        embed.set_footer(text=f"Requested by {interaction.user}")
+        return embed
 
-    @play.autocomplete('query')
-    async def autocomplete_callback(self, interaction: discord.Interaction, current: str):
-        if not re.compile(r'https?://(?:www\.)?.+').match(current):
-            search = requests.get(
-                f"http://suggestqueries.google.com/complete/search?client=youtube&ds=yt&client=firefox&q={current.replace(' ', '%20')}")
-            return [app_commands.Choice(name=result, value=result) for result in search.json()[1]]
+    @app_commands.command(name="play", description="Search and play media from YouTube, Spotify, SoundCloud, Apple Music etc.")
+    @app_commands.describe(
+        query="A search query or URL to the media."
+    )
+    @interaction_ensure_voice
+    async def play(self, interaction: discord.Interaction, query: str):
+        """ Searches and plays a song from a given query. """
+        await interaction.response.defer(thinking=True)
+        # Get the player for this guild from cache.
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+        await self.add_tracks(interaction, player, query)
+
+        if player.current is not None:
+            embed = await self.generate_custom_play_embed(interaction, player, len(player.queue) - 1, "ADDED TO QUEUE: ", None)
+            await interaction.followup.send(embed=embed)
+            await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+        else:
+            await self.handle_new_player(interaction, player)
 
     @app_commands.command(name="skip", description="Skips the current media to the next one in queue.")
     @app_commands.describe(
@@ -354,7 +361,7 @@ class Music(commands.Cog):
         if time < 0 or time > player.current.duration/1000:
             return await self.send_message(interaction, f"You may only seek between `0` and `{player.current.duration/1000}` seconds.", True)
         await player.seek(time*1000)
-        await self.send_message(interaction, f"Seeked to `{await self.formatDuration(time*1000)}`.")
+        await self.send_message(interaction, f"Seeked to `{await self.format_duration(time*1000)}`.")
 
     @app_commands.command(name="loop", description="Loop the current media or queue.")
     @interaction_ensure_voice
@@ -372,7 +379,7 @@ class Music(commands.Cog):
             case "Queue":
                 player.set_loop(2)
                 await self.send_message(interaction, f"Queue looping has been enabled.")
-        await self.updateNowPlaying(interaction.guild, player)
+        await self.update_now_playing(interaction.guild, player)
 
     @app_commands.command(name="disconnect", description="Disconnects the bot from voice.")
     @interaction_ensure_voice
@@ -454,7 +461,7 @@ class Music(commands.Cog):
             f"[MUSIC] [{guild} // {guild_id}] Paused {player.current.title} - {player.current.uri}")
         
         await self.send_message(interaction, "Media has been paused.")
-        await self.updateNowPlaying(interaction.guild, player)
+        await self.update_now_playing(interaction.guild, player)
 
     # Written by Sam https://github.com/sam1357
     @app_commands.command(name="resume", description="Resumes the music")
@@ -474,7 +481,7 @@ class Music(commands.Cog):
             f"[MUSIC] [{guild} // {guild_id}] Resumed {player.current.title} - {player.current.uri}")
 
         await self.send_message(interaction, "Media has been resumed.")
-        await self.updateNowPlaying(interaction.guild, player)
+        await self.update_now_playing(interaction.guild, player)
 
     @app_commands.command(name="shuffle", description="Shuffles the queue")
     @interaction_ensure_voice
@@ -548,7 +555,7 @@ class Music(commands.Cog):
                         value=player.current.author, inline=True)
         embed.add_field(name="Progress",
                         value=f'{datetime.datetime.utcfromtimestamp(int(player.position) / 1000).strftime("%H:%M:%S")} {progress_bar[0]} {"LIVE STREAM" if player.current.stream else datetime.datetime.utcfromtimestamp(int(player.current.duration) / 1000).strftime("%H:%M:%S")}', inline=False)
-        embed.set_thumbnail(url=await self.getMediaThumbnail(player.current.source_name, player.current.identifier))
+        embed.set_thumbnail(url=await self.get_media_thumbnail(player.current.source_name, player.current.identifier))
         await interaction.response.send_message(embed=embed)
         return await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME * 2)
 
@@ -586,7 +593,7 @@ class Music(commands.Cog):
                     loop_disabled = True
                     player.set_loop(0)
                 await self.send_message(interaction, f"Autoplaying has been enabled for the queue{'.' if not loop_disabled else ' and looping has been disabled.'}")
-        await self.updateNowPlaying(interaction.guild, player)
+        await self.update_now_playing(interaction.guild, player)
 
     @app_commands.command(name="lyrics", description="Retrieves lyrics for a song")
     @app_commands.describe(
@@ -632,7 +639,7 @@ class Music(commands.Cog):
         
         new_time = max(0, player.position - converted_time * 1000)
         await player.seek(new_time)
-        await self.send_message(interaction, f"Rewinded `{await self.formatDuration(converted_time * 1000)}` to `{await self.formatDuration(new_time)}`.")
+        await self.send_message(interaction, f"Rewinded `{await self.format_duration(converted_time * 1000)}` to `{await self.format_duration(new_time)}`.")
 
     @app_commands.command(name="fastforward", description="Fast forwards the current song. If a time is not provided, this defaults to 15 seconds.")
     @app_commands.describe(
@@ -653,10 +660,67 @@ class Music(commands.Cog):
 
         new_time = player.position + converted_time * 1000
         if new_time > player.current.duration:
-            return await self.send_message(interaction, f"The currently playing media only has `{await self.formatDuration(player.current.duration - player.position)}` time left.", True)
+            return await self.send_message(interaction, f"The currently playing media only has `{await self.format_duration(player.current.duration - player.position)}` time left.", True)
 
         await player.seek(new_time)
-        await self.send_message(interaction, f"Fast forwarded `{await self.formatDuration(converted_time * 1000)}` to `{await self.formatDuration(new_time)}`.")
+        await self.send_message(interaction, f"Fast forwarded `{await self.format_duration(converted_time * 1000)}` to `{await self.format_duration(new_time)}`.")
+
+    @app_commands.command(name="playnext", description="Queues the provided query to play next; does not skip the current song.")
+    @app_commands.describe(
+        query="A search query or URL to the media."
+    )
+    @interaction_ensure_voice
+    async def playnext(self, interaction: discord.Interaction, query: str):
+        await interaction.response.defer(thinking=True)
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+        
+        await self.add_tracks(interaction, player, query)
+        player.queue.insert(0, player.queue.pop())
+
+        if player.current is None:
+            await self.handle_new_player(interaction, player)
+        else: 
+            embed = await self.generate_custom_play_embed(interaction, player, 0, "PLAYING NEXT: ", 1)
+            await interaction.followup.send(embed=embed)
+            await self.delay_delete(interaction, Music.MESSAGE_ALIVE_TIME)
+        
+    @app_commands.command(name="playnow", description="Skips the song and plays the requested track immediately.")
+    @app_commands.describe(
+        query="A search query or URL to the media."
+    )
+    @app_commands.describe(
+        continue_skipped="Should the skipped track continue playing after the current track? Defaults to yes."
+    )
+    @interaction_ensure_voice
+    async def playnow(self, interaction: discord.Interaction, query: str, continue_skipped: typing.Optional[Literal["Yes", "No"]]="Yes"):
+        await interaction.response.defer(thinking=True)
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+        
+        await self.add_tracks(interaction, player, query)
+        player.queue.insert(0, player.queue.pop())
+
+        if player.current is None:
+            return await self.handle_new_player(interaction, player)
+        else: 
+            skipped = player.current
+            skipped.position = player.position
+            # Add the new song, move it to the top and skip
+            await player.skip()
+
+            if continue_skipped == "Yes":
+                player.queue.insert(0, skipped)
+                await self.send_message(interaction, f"The track [{skipped.title}]({skipped.uri}) will resume playing after the current track.", followup=True)
+            else:
+                await self.send_message(interaction, f"The track [{skipped.title}]({skipped.uri}) has been skipped.", followup=True)
+
+    @play.autocomplete('query')
+    @playnext.autocomplete('query')
+    @playnow.autocomplete('query')
+    async def autocomplete_callback(self, _: discord.Interaction, current: str):
+        if not re.compile(r'https?://(?:www\.)?.+').match(current):
+            search = requests.get(
+                f"http://suggestqueries.google.com/complete/search?client=youtube&ds=yt&client=firefox&q={current.replace(' ', '%20')}")
+            return [app_commands.Choice(name=result, value=result) for result in search.json()[1]]
 
 async def setup(bot):
     await bot.add_cog(Music(bot))
