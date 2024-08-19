@@ -28,6 +28,7 @@ import requests
 import discord
 import logging
 
+
 class Music(commands.Cog):
 
     MESSAGE_ALIVE_TIME = 10  # seconds
@@ -482,7 +483,7 @@ class Music(commands.Cog):
                 await self.send_message(interaction, "Song looping has been enabled.")
             case "Queue":
                 player.set_loop(2)
-                await self.send_message(interaction, f"Queue looping has been enabled.")
+                await self.send_message(interaction, "Queue looping has been enabled.")
         await self.update_now_playing(interaction.guild, player)
 
     @app_commands.command(name="disconnect", description="Disconnects the bot from voice.")
@@ -729,7 +730,8 @@ class Music(commands.Cog):
             )
 
         progress_bar = progressBar.splitBar(player.current.duration, int(player.position), size=15)
-        duration_text = datetime.datetime.utcfromtimestamp(int(player.current.duration) / 1000).strftime("%H:%M:%S")
+        duration_text = datetime.datetime.utcfromtimestamp(int(player.position) / 1000).strftime("%H:%M:%S")
+        total_duration = datetime.datetime.utcfromtimestamp(int(player.current.duration) / 1000).strftime("%H:%M:%S")
 
         embed = self.bot.create_embed(
             "MOCBOT MUSIC", f"> NOW PLAYING: [{player.current.title}]({player.current.uri})", None
@@ -742,7 +744,7 @@ class Music(commands.Cog):
         embed.add_field(name="Uploader", value=player.current.author, inline=True)
         embed.add_field(
             name="Progress",
-            value=f'{datetime.datetime.utcfromtimestamp(int(player.position) / 1000).strftime("%H:%M:%S")} {progress_bar[0]} {"LIVE STREAM" if player.current.stream else datetime.datetime.utcfromtimestamp(int(player.current.duration) / 1000).strftime("%H:%M:%S")}',
+            value=f'{duration_text} {progress_bar[0]} {"LIVE STREAM" if player.current.stream else total_duration}',
             inline=False,
         )
         embed.set_thumbnail(url=await self.get_media_thumbnail(player.current.source_name, player.current.identifier))
@@ -796,7 +798,7 @@ class Music(commands.Cog):
                     player.set_loop(0)
                 await self.send_message(
                     interaction,
-                    f"Autoplaying has been enabled for the queue{'.' if not loop_disabled else ' and looping has been disabled.'}",
+                    f"Autoplaying has been enabled for the queue{'.' if not loop_disabled else ' and looping has been disabled.'}",  # noqa: E501
                 )
         await self.update_now_playing(interaction.guild, player)
 
@@ -875,11 +877,13 @@ class Music(commands.Cog):
         if not player.current.is_seekable:
             return await self.send_message(interaction, "The media does not support rewinding.", True)
 
-        new_time = max(0, player.position - converted_time * 1000)
+        new_time = await self.format_duration(max(0, player.position - converted_time * 1000))
+        formatted_time = await self.format_duration(converted_time * 1000)
+
         await player.seek(new_time)
         await self.send_message(
             interaction,
-            f"Rewinded `{await self.format_duration(converted_time * 1000)}` to `{await self.format_duration(new_time)}`.",
+            f"Rewinded `{formatted_time}` to `{new_time}`.",
         )
 
     @app_commands.command(
@@ -908,18 +912,21 @@ class Music(commands.Cog):
         if not player.current.is_seekable:
             return await self.send_message(interaction, "The media does not support fast forwarding.", True)
 
-        new_time = player.position + converted_time * 1000
+        new_time = await self.format_duration(player.position + converted_time * 1000)
+        remaining_time = await self.format_duration(player.current.duration - player.position)
+        time_forwarded = await self.format_duration(converted_time * 1000)
+
         if new_time > player.current.duration:
             return await self.send_message(
                 interaction,
-                f"The currently playing media only has `{await self.format_duration(player.current.duration - player.position)}` time left.",
+                f"The currently playing media only has `{remaining_time}` time left.",
                 True,
             )
 
         await player.seek(new_time)
         await self.send_message(
             interaction,
-            f"Fast forwarded `{await self.format_duration(converted_time * 1000)}` to `{await self.format_duration(new_time)}`.",
+            f"Fast forwarded `{time_forwarded}` to `{new_time}`.",
         )
 
     @app_commands.command(
@@ -985,7 +992,7 @@ class Music(commands.Cog):
     async def autocomplete_callback(self, _: discord.Interaction, current: str):
         if not re.compile(r"https?://(?:www\.)?.+").match(current):
             search = requests.get(
-                f"http://suggestqueries.google.com/complete/search?client=youtube&ds=yt&client=firefox&q={current.replace(' ', '%20')}"
+                f"http://suggestqueries.google.com/complete/search?client=youtube&ds=yt&client=firefox&q={current.replace(' ', '%20')}"  # noqa: E501
             )
             return [app_commands.Choice(name=result, value=result) for result in search.json()[1]]
 
