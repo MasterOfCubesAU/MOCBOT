@@ -7,6 +7,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -18,4 +21,5 @@ jobs:
           pip install flake8==7.0.0
 
       - name: Lint
-        run: flake8 .
+        run: |
+          flake8 .
