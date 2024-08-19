@@ -110,7 +110,7 @@ class QueuePagination(menus.ListPageSource):
                 "\n".join(
                     [
                         f"{index}. [{track.title}]({track.uri}) - "
-                        f'{await self.Music.formatDuration(track.duration) if not track.stream else "LIVE STREAM"}'
+                        f'{await self.Music.format_duration(track.duration) if not track.stream else "LIVE STREAM"}'
                         for index, track in enumerate(entries, start=offset)
                     ]
                 )
@@ -126,7 +126,7 @@ class QueuePagination(menus.ListPageSource):
             )
             embed.add_field(
                 name="**Total Duration**",
-                value=(await self.formatDuration(duration) if (duration < 86400000) else ">24h"),
+                value=(await self.format_duration(duration) if (duration < 86400000) else ">24h"),
                 inline=True,
             )
             embed.add_field(
